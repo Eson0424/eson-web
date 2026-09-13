@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+/* Eson_web design system entry point.
+   顺序：tokens → base → typography → layout → motion。
+   参考 docs/DESIGN.md（§3 颜色、§5–6 排版、§7–9 布局、§26–27 动效、§45 设计令牌）。 */
+@import './tokens.css';
+@import './base.css';
+@import './typography.css';
+@import './layout.css';
+@import './motion.css';

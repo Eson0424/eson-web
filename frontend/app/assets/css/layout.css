@@ -1,0 +1,111 @@
+/* Layout foundation — docs/DESIGN.md §7（容器与栅格）、§8（间距）、§17（阅读宽度） */
+
+:root {
+  --page-padding: 1.25rem; /* Mobile 20px */
+  --grid-columns: 4; /* Mobile 4 列 */
+  --grid-gutter: 1rem;
+  --section-space: var(--spacing-section-sm);
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --page-padding: 2rem; /* Tablet 32px */
+    --grid-columns: 8; /* Tablet 8 列 */
+    --grid-gutter: 1.5rem;
+    --section-space: var(--spacing-section-md);
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-padding: 2.5rem; /* Desktop 40px */
+    --grid-columns: 12; /* Desktop 12 列 */
+    --section-space: var(--spacing-section-lg);
+  }
+}
+
+@media (min-width: 90rem) {
+  :root {
+    --page-padding: 4rem; /* Large desktop 64px */
+    --section-space: var(--spacing-section-xl);
+  }
+}
+
+@layer components {
+  .container-page {
+    margin-inline: auto;
+    max-width: var(--container-page);
+    padding-inline: var(--page-padding);
+    width: 100%;
+  }
+
+  /* 12 / 8 / 4 列栅格（DESIGN §7.2）：默认不可见，仅作为布局骨架。 */
+  .grid-page {
+    column-gap: var(--grid-gutter);
+    display: grid;
+    grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  }
+
+  .grid-full {
+    grid-column: 1 / -1;
+  }
+
+  .section-space {
+    padding-block: var(--section-space);
+  }
+
+  .section-space-sm {
+    padding-block: var(--spacing-section-sm);
+  }
+
+  .hairline {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .hairline-strong {
+    border-top: 1px solid var(--color-line-strong);
+  }
+
+  /* 跳转到主要内容：默认视觉隐藏，获得焦点时出现在页面左上角。 */
+  .skip-link {
+    background-color: var(--color-accent-strong);
+    color: #fff;
+    left: var(--page-padding);
+    padding: 0.75rem 1rem;
+    position: fixed;
+    top: 0.75rem;
+    transform: translateY(-200%);
+    transition: transform var(--duration-micro) var(--ease-out);
+    z-index: var(--z-toast);
+  }
+
+  /* 任何获得焦点的方式都必须让跳转链接可见（WCAG 2.4.7）。 */
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+}
+
+/* 栅格跨度助手：仅在 desktop 断点以上生效，移动端始终单列。 */
+@media (min-width: 40rem) {
+  @layer components {
+    .col-span-tablet-half {
+      grid-column: span 4 / span 4;
+    }
+  }
+}
+
+@media (min-width: 64rem) {
+  @layer components {
+    .col-span-desktop-half {
+      grid-column: span 6 / span 6;
+    }
+
+    .col-span-desktop-third {
+      grid-column: span 4 / span 4;
+    }
+
+    .col-span-desktop-two-thirds {
+      grid-column: span 8 / span 8;
+    }
+  }
+}

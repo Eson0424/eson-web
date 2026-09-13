@@ -1,0 +1,471 @@
+// Eson_web — Prisma schema（Phase 3）
+//
+// Source of truth：docs/DATABASE.md（25 张表：16 主体表 + 9 join 表）。
+// 约定：数据库 snake_case（@@map / @map），TypeScript PascalCase / camelCase，
+// UUID 主键，时间统一 TIMESTAMPTZ（UTC）。
+//
+// Prisma 7：连接串由 prisma.config.ts 提供，运行时通过 driver adapter 连接（见 src/prisma）。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum ContactMessageStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+// ─────────────────────────── Users ───────────────────────────
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  role         UserRole  @default(ADMIN)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  writings Writing[]
+
+  @@map("users")
+}
+
+// ─────────────────────────── Work ────────────────────────────
+
+model Work {
+  id           String        @id @default(uuid()) @db.Uuid
+  slug         String        @unique
+  status       ContentStatus @default(DRAFT)
+  featured     Boolean       @default(false)
+  sortOrder    Int           @default(0) @map("sort_order")
+  coverMediaId String?       @map("cover_media_id") @db.Uuid
+  githubUrl    String?       @map("github_url")
+  demoUrl      String?       @map("demo_url")
+  projectUrl   String?       @map("project_url")
+  startDate    DateTime?     @map("start_date") @db.Date
+  endDate      DateTime?     @map("end_date") @db.Date
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cover        Media?            @relation("WorkCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  translations WorkTranslation[]
+  categories   WorkCategory[]
+  tags         WorkTag[]
+  media        WorkMedia[]
+
+  @@index([status, publishedAt])
+  @@index([status, featured])
+  @@index([sortOrder])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@map("works")
+}
+
+model WorkTranslation {
+  id             String   @id @default(uuid()) @db.Uuid
+  workId         String   @map("work_id") @db.Uuid
+  locale         String
+  title          String
+  subtitle       String?
+  summary        String?
+  content        String?
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([workId, locale])
+  @@map("work_translations")
+}
+
+model WorkCategory {
+  workId     String @map("work_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  work     Work     @relation(fields: [workId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([workId, categoryId])
+  @@map("work_categories")
+}
+
+model WorkTag {
+  workId String @map("work_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([workId, tagId])
+  @@map("work_tags")
+}
+
+model WorkMedia {
+  workId    String  @map("work_id") @db.Uuid
+  mediaId   String  @map("media_id") @db.Uuid
+  sortOrder Int     @default(0) @map("sort_order")
+  caption   String?
+
+  work  Work  @relation(fields: [workId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([workId, mediaId])
+  @@map("work_media")
+}
+
+// ─────────────────────────── Lab ─────────────────────────────
+
+model Lab {
+  id           String        @id @default(uuid()) @db.Uuid
+  slug         String        @unique
+  status       ContentStatus @default(DRAFT)
+  featured     Boolean       @default(false)
+  sortOrder    Int           @default(0) @map("sort_order")
+  coverMediaId String?       @map("cover_media_id") @db.Uuid
+  githubUrl    String?       @map("github_url")
+  demoUrl      String?       @map("demo_url")
+  projectUrl   String?       @map("project_url")
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cover        Media?           @relation("LabCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  translations LabTranslation[]
+  categories   LabCategory[]
+  tags         LabTag[]
+  media        LabMedia[]
+
+  @@index([status, publishedAt])
+  @@index([status, featured])
+  @@index([sortOrder])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@map("labs")
+}
+
+model LabTranslation {
+  id             String   @id @default(uuid()) @db.Uuid
+  labId          String   @map("lab_id") @db.Uuid
+  locale         String
+  title          String
+  subtitle       String?
+  summary        String?
+  content        String?
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  lab Lab @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@unique([labId, locale])
+  @@map("lab_translations")
+}
+
+model LabCategory {
+  labId      String @map("lab_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  lab      Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([labId, categoryId])
+  @@map("lab_categories")
+}
+
+model LabTag {
+  labId String @map("lab_id") @db.Uuid
+  tagId String @map("tag_id") @db.Uuid
+
+  lab Lab @relation(fields: [labId], references: [id], onDelete: Cascade)
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([labId, tagId])
+  @@map("lab_tags")
+}
+
+model LabMedia {
+  labId     String  @map("lab_id") @db.Uuid
+  mediaId   String  @map("media_id") @db.Uuid
+  sortOrder Int     @default(0) @map("sort_order")
+  caption   String?
+
+  lab   Lab   @relation(fields: [labId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([labId, mediaId])
+  @@map("lab_media")
+}
+
+// ─────────────────────────── Writing ─────────────────────────
+
+model Writing {
+  id           String        @id @default(uuid()) @db.Uuid
+  slug         String        @unique
+  status       ContentStatus @default(DRAFT)
+  featured     Boolean       @default(false)
+  sortOrder    Int           @default(0) @map("sort_order")
+  coverMediaId String?       @map("cover_media_id") @db.Uuid
+  authorId     String?       @map("author_id") @db.Uuid
+  readingTime  Int?          @map("reading_time")
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cover        Media?               @relation("WritingCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  author       User?                @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  translations WritingTranslation[]
+  categories   WritingCategory[]
+  tags         WritingTag[]
+  media        WritingMedia[]
+
+  @@index([status, publishedAt])
+  @@index([status, featured])
+  @@index([sortOrder])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@map("writings")
+}
+
+model WritingTranslation {
+  id             String   @id @default(uuid()) @db.Uuid
+  writingId      String   @map("writing_id") @db.Uuid
+  locale         String
+  title          String
+  subtitle       String?
+  excerpt        String?
+  content        String?
+  seoTitle       String?  @map("seo_title")
+  seoDescription String?  @map("seo_description")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  writing Writing @relation(fields: [writingId], references: [id], onDelete: Cascade)
+
+  @@unique([writingId, locale])
+  @@map("writing_translations")
+}
+
+model WritingCategory {
+  writingId  String @map("writing_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  writing  Writing  @relation(fields: [writingId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([writingId, categoryId])
+  @@map("writing_categories")
+}
+
+model WritingTag {
+  writingId String @map("writing_id") @db.Uuid
+  tagId     String @map("tag_id") @db.Uuid
+
+  writing Writing @relation(fields: [writingId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([writingId, tagId])
+  @@map("writing_tags")
+}
+
+model WritingMedia {
+  writingId String  @map("writing_id") @db.Uuid
+  mediaId   String  @map("media_id") @db.Uuid
+  sortOrder Int     @default(0) @map("sort_order")
+  caption   String?
+
+  writing Writing @relation(fields: [writingId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([writingId, mediaId])
+  @@map("writing_media")
+}
+
+// ───────────────────────── Experience ────────────────────────
+
+model Experience {
+  id             String    @id @default(uuid()) @db.Uuid
+  company        String?
+  role           String?
+  employmentType String?   @map("employment_type")
+  location       String?
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  isCurrent      Boolean   @default(false) @map("is_current")
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  translations ExperienceTranslation[]
+
+  @@index([sortOrder])
+  @@index([startDate])
+  @@map("experiences")
+}
+
+model ExperienceTranslation {
+  id           String   @id @default(uuid()) @db.Uuid
+  experienceId String   @map("experience_id") @db.Uuid
+  locale       String
+  companyName  String?  @map("company_name")
+  roleName     String   @map("role_name")
+  summary      String?
+  content      String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@unique([experienceId, locale])
+  @@map("experience_translations")
+}
+
+// ─────────────────────── Category / Tag ──────────────────────
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  translations CategoryTranslation[]
+  works        WorkCategory[]
+  labs         LabCategory[]
+  writings     WritingCategory[]
+
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id          String   @id @default(uuid()) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  locale      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, locale])
+  @@map("category_translations")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  translations TagTranslation[]
+  works        WorkTag[]
+  labs         LabTag[]
+  writings     WritingTag[]
+
+  @@map("tags")
+}
+
+model TagTranslation {
+  id        String   @id @default(uuid()) @db.Uuid
+  tagId     String   @map("tag_id") @db.Uuid
+  locale    String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, locale])
+  @@map("tag_translations")
+}
+
+// ─────────────────────────── Media ───────────────────────────
+
+model Media {
+  id               String   @id @default(uuid()) @db.Uuid
+  storageKey       String   @map("storage_key")
+  url              String
+  filename         String
+  originalFilename String?  @map("original_filename")
+  mimeType         String   @map("mime_type")
+  size             Int?
+  width            Int?
+  height           Int?
+  alt              String?
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workCovers    Work[]         @relation("WorkCover")
+  labCovers     Lab[]          @relation("LabCover")
+  writingCovers Writing[]      @relation("WritingCover")
+  works         WorkMedia[]
+  labs          LabMedia[]
+  writings      WritingMedia[]
+
+  @@index([mimeType])
+  @@index([createdAt])
+  @@map("media")
+}
+
+// ──────────────────────── Contact / Settings ─────────────────
+
+model ContactMessage {
+  id        String               @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    ContactMessageStatus @default(UNREAD)
+  ipHash    String?              @map("ip_hash")
+  userAgent String?              @map("user_agent")
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@map("contact_messages")
+}
+
+model SiteSetting {
+  id          String      @id @default(uuid()) @db.Uuid
+  key         String      @unique
+  value       Json?
+  type        SettingType @default(STRING)
+  description String?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("site_settings")
+}

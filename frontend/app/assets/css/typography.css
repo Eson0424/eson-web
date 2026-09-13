@@ -1,0 +1,90 @@
+/* Typography system — docs/DESIGN.md §4–6、§5（scale）、§17.1（阅读宽度） */
+
+@layer components {
+  .type-display {
+    font-size: var(--text-display);
+    font-weight: var(--text-display--font-weight);
+    letter-spacing: var(--text-display--letter-spacing);
+    line-height: var(--text-display--line-height);
+    text-wrap: balance;
+  }
+
+  .type-h1 {
+    font-size: var(--text-h1);
+    font-weight: var(--text-h1--font-weight);
+    letter-spacing: var(--text-h1--letter-spacing);
+    line-height: var(--text-h1--line-height);
+    text-wrap: balance;
+  }
+
+  .type-h2 {
+    font-size: var(--text-h2);
+    font-weight: var(--text-h2--font-weight);
+    letter-spacing: var(--text-h2--letter-spacing);
+    line-height: var(--text-h2--line-height);
+    text-wrap: balance;
+  }
+
+  .type-h3 {
+    font-size: var(--text-h3);
+    font-weight: var(--text-h3--font-weight);
+    letter-spacing: var(--text-h3--letter-spacing);
+    line-height: var(--text-h3--line-height);
+    text-wrap: balance;
+  }
+
+  .type-body {
+    font-size: var(--text-body);
+    font-weight: var(--text-body--font-weight);
+    line-height: var(--text-body--line-height);
+    text-wrap: pretty;
+  }
+
+  .type-body-secondary {
+    color: var(--color-ink-secondary);
+  }
+
+  .type-small {
+    font-size: var(--text-small);
+    font-weight: var(--text-small--font-weight);
+    letter-spacing: var(--text-small--letter-spacing);
+    line-height: var(--text-small--line-height);
+  }
+
+  /* 技术性 metadata：分类、日期、状态、序号（DESIGN §5 Small/Meta、§6） */
+  .type-meta {
+    font-size: var(--text-meta);
+    font-weight: var(--text-meta--font-weight);
+    letter-spacing: var(--text-meta--letter-spacing);
+    line-height: var(--text-meta--line-height);
+    text-transform: uppercase;
+  }
+
+  /* 正文阅读宽度约束：650–760px（DESIGN §17.1） */
+  .type-reading-width {
+    max-width: var(--container-reading);
+  }
+}
+
+/* 中文排版：CJK 需要更高的行高，负字距仅用于拉丁字母（DESIGN §16）。 */
+@layer components {
+  :where(html[lang^='zh']) .type-display,
+  :where(html[lang^='zh']) .type-h1 {
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+  }
+
+  :where(html[lang^='zh']) .type-h2 {
+    letter-spacing: -0.008em;
+    line-height: 1.14;
+  }
+
+  :where(html[lang^='zh']) .type-h3 {
+    letter-spacing: 0em;
+    line-height: 1.32;
+  }
+
+  :where(html[lang^='zh']) .type-body {
+    line-height: 1.78;
+  }
+}

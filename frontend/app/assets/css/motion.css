@@ -1,0 +1,146 @@
+/* Motion foundation — docs/DESIGN.md §18、§23（hover）、§24（页面过渡）、§26–27（时长与 reduced motion） */
+
+@layer components {
+  /* ── 页面过渡：Exit 200ms / Enter 380ms ─────────────────── */
+  .page-enter-active {
+    transition:
+      opacity var(--duration-enter) var(--ease-out),
+      transform var(--duration-enter) var(--ease-out);
+  }
+
+  .page-leave-active {
+    transition:
+      opacity var(--duration-exit) var(--ease-out),
+      transform var(--duration-exit) var(--ease-out);
+  }
+
+  .page-enter-from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+
+  .page-leave-to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+
+  /* ── Reveal：由 v-reveal 指令添加 .is-revealed ────────────
+     隐藏态只在 JS 可用时生效（html.js-reveal），
+     因此脚本失败或被禁用时内容依然可见（progressive enhancement）。 */
+  .js-reveal .reveal {
+    opacity: 0;
+    transform: translate3d(0, var(--reveal-shift, 16px), 0);
+    transition:
+      opacity var(--duration-content) var(--ease-out),
+      transform var(--duration-content) var(--ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js-reveal .reveal.is-revealed {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* 无 IntersectionObserver 时的兜底：内容必须始终可见。 */
+  .js-reveal .reveal.is-reveal-unsupported {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* clip reveal：用于视觉/图像块，比整块上移更克制（DESIGN §24「clip reveal」）。 */
+  .js-reveal .reveal-clip {
+    clip-path: inset(0 0 var(--reveal-clip-inset, 12%) 0);
+    opacity: 1;
+    transform: none;
+    transition: clip-path var(--duration-content) var(--ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js-reveal .reveal-clip.is-revealed {
+    clip-path: inset(0 0 0 0);
+  }
+
+  .js-reveal .reveal-clip.is-reveal-unsupported {
+    clip-path: inset(0 0 0 0);
+  }
+
+  /* ── 交互反馈（DESIGN §23：幅度克制） ───────────────────── */
+  .interactive-lift {
+    transition:
+      transform var(--duration-ui) var(--ease-out),
+      border-color var(--duration-ui) var(--ease-out),
+      background-color var(--duration-ui) var(--ease-out);
+  }
+
+  .interactive-lift:hover {
+    transform: translate3d(0, -2px, 0);
+  }
+
+  /* 链接下划线：用 transform 而非 width 动画，避免 layout thrashing。 */
+  .link-underline {
+    position: relative;
+  }
+
+  .link-underline::after {
+    background-color: currentColor;
+    bottom: -0.15em;
+    content: '';
+    height: 1px;
+    left: 0;
+    opacity: 0.35;
+    position: absolute;
+    transform: scaleX(1);
+    transform-origin: left;
+    transition:
+      opacity var(--duration-ui) var(--ease-out),
+      transform var(--duration-ui) var(--ease-out);
+    width: 100%;
+  }
+
+  .link-underline:hover::after,
+  .link-underline:focus-visible::after {
+    opacity: 0.9;
+  }
+
+  .link-underline[data-underline='collapsed']::after {
+    opacity: 0.35;
+    transform: scaleX(0.35);
+  }
+
+  .link-underline[data-underline='collapsed']:hover::after,
+  .link-underline[data-underline='collapsed']:focus-visible::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  /* 当前路由：用形状（下划线）表达，不依赖颜色（AGENTS §20）。 */
+  .link-underline[aria-current='page']::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  /* 移动端菜单：轻微位移 + 淡入，比整页过渡更自然。 */
+  .menu-enter-active {
+    transition:
+      opacity var(--duration-ui) var(--ease-out),
+      transform var(--duration-ui) var(--ease-out);
+  }
+
+  .menu-leave-active {
+    transition:
+      opacity var(--duration-exit) var(--ease-out),
+      transform var(--duration-exit) var(--ease-out);
+  }
+
+  .menu-enter-from,
+  .menu-leave-to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-reveal .reveal-clip {
+    clip-path: inset(0 0 0 0);
+  }
+}

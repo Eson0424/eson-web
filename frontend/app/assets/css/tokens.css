@@ -1,0 +1,124 @@
+/* Eson_web design tokens — 唯一来源：docs/DESIGN.md
+   组件中不得重复硬编码这些设计值（AGENTS.md §63、DESIGN.md §45）。 */
+
+@theme {
+  /* ── Color: 背景与表面（DESIGN §3.2–3.3） ───────────────── */
+  --color-background: #07080c;
+  --color-background-secondary: #0b0d12;
+  --color-surface: #10131a;
+  --color-surface-elevated: #141820;
+
+  /* ── Color: 文本（DESIGN §3.3） ─────────────────────────── */
+  --color-ink: #f2f4f7;
+  --color-ink-secondary: #a7adb8;
+  /* DESIGN §3.2 允许实现阶段根据视觉测试调整具体数值。
+     原值 #6E7582 在 #07080C 上对比度约 4.2:1，未达到 WCAG AA 4.5:1，
+     因此上调亮度以保留三级文本层级并满足无障碍要求。 */
+  --color-ink-muted: #828a99;
+
+  /* ── Color: 边框（DESIGN §3.3） ─────────────────────────── */
+  --color-line: rgb(255 255 255 / 8%);
+  --color-line-strong: rgb(255 255 255 / 14%);
+
+  /* ── Color: Electric Blue 强调色（DESIGN §3.4） ───────────
+     accent 用于文字/线条/指示器；accent-strong 用于实心按钮，保证白色文字达到 AA 对比度。 */
+  --color-accent: #3d6bff;
+  --color-accent-strong: #2a4bd7;
+  --color-accent-bright: #3358e8;
+  --color-accent-deep: #6d4bff;
+  --color-accent-soft: rgb(61 107 255 / 14%);
+  /* 用于文字/链接的强调色：比 accent 更亮，保证在深色背景与 accent-soft 底色上达到 AA。 */
+  --color-accent-text: #8fa9ff;
+
+  /* ── Color: 状态（DESIGN §34；状态不得仅用颜色表达） ─────── */
+  --color-status-online: #46c07a;
+  --color-status-busy: #d0a44c;
+  --color-status-offline: #6e7582;
+
+  /* ── Typography（DESIGN §4–6） ──────────────────────────── */
+  --font-sans: Inter, 'Noto Sans', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
+
+  --text-display: clamp(2.625rem, 7vw, 8.75rem);
+  --text-display--line-height: 0.95;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 600;
+
+  --text-h1: clamp(2.5rem, 4.6vw, 5rem);
+  --text-h1--line-height: 1.02;
+  --text-h1--letter-spacing: -0.03em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: clamp(2rem, 3.2vw, 3.5rem);
+  --text-h2--line-height: 1.08;
+  --text-h2--letter-spacing: -0.025em;
+  --text-h2--font-weight: 600;
+
+  --text-h3: clamp(1.375rem, 1.8vw, 2rem);
+  --text-h3--line-height: 1.2;
+  --text-h3--letter-spacing: -0.015em;
+  --text-h3--font-weight: 500;
+
+  --text-body: clamp(0.9375rem, 0.35vw + 0.85rem, 1.125rem);
+  --text-body--line-height: 1.62;
+  --text-body--letter-spacing: 0em;
+  --text-body--font-weight: 400;
+
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-small--letter-spacing: 0em;
+  --text-small--font-weight: 400;
+
+  /* 技术性 metadata（分类 / 日期 / 状态）：DESIGN §6 letter-spacing 0.08em */
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1.4;
+  --text-meta--letter-spacing: 0.08em;
+  --text-meta--font-weight: 500;
+
+  /* ── Spacing：语义化 section 间距（DESIGN §8 的 4px 基准刻度） ── */
+  --spacing-section-sm: 4rem; /* 64 */
+  --spacing-section-md: 6rem; /* 96 */
+  --spacing-section-lg: 8rem; /* 128 */
+  --spacing-section-xl: 10rem; /* 160 */
+  --spacing-section-2xl: 12rem; /* 192 */
+
+  /* ── Radius（DESIGN §9） ───────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* ── Shadow（DESIGN §31–32：环境光而非霓虹） ───────────── */
+  --shadow-ambient: 0 32px 80px -48px rgb(0 0 0 / 80%);
+  --shadow-lift: 0 16px 40px -24px rgb(0 0 0 / 70%);
+  --shadow-focus: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent);
+
+  /* ── Motion（DESIGN §18、§24、§26） ────────────────────── */
+  --duration-micro: 160ms;
+  --duration-ui: 260ms;
+  --duration-content: 460ms;
+  --duration-large: 800ms;
+  --duration-exit: 200ms;
+  --duration-enter: 380ms;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Breakpoints（DESIGN §37） ─────────────────────────── */
+  --breakpoint-tablet: 40rem; /* 640px */
+  --breakpoint-desktop: 64rem; /* 1024px */
+  --breakpoint-wide: 90rem; /* 1440px */
+
+  /* ── Container（DESIGN §7.1、§17.1） ───────────────────── */
+  --container-page: 90rem; /* 1440px */
+  --container-reading: 47.5rem; /* 760px 正文阅读宽度 */
+}
+
+:root {
+  /* ── z-index（DESIGN §45：集中管理，避免魔法数字） ─────── */
+  --z-base: 0;
+  --z-header: 100;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}

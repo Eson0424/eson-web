@@ -1,0 +1,64 @@
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+    background-color: var(--color-background);
+  }
+
+  /* 平滑滚动仅在用户未要求减少动效时启用（DESIGN §25、§27）。 */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    font-weight: var(--text-body--font-weight);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+
+  /* 键盘焦点必须始终可见（WCAG 2.2 SC 2.4.11 / 2.4.13）。 */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  :where(a) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :where(hr) {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* Reduced motion：关闭非必要动效，内容保持完全可用（DESIGN §27、AGENTS §18）。 */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+}

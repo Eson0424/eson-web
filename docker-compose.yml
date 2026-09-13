@@ -1,0 +1,86 @@
+# Eson_web local infrastructure skeleton (Phase 1).
+# 说明：本文件未在 Docker 中实际运行验证，当前开发机未安装 Docker Desktop / WSL2。
+# 默认启动 postgres + minio；frontend/backend 服务需要 --profile app 才会启动。
+
+name: eson-web
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: eson-web-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eson_local_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-eson_web}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-eson} -d ${POSTGRES_DB:-eson_web}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: eson-web-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-eson}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-eson_local_dev_only}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: dev
+    container_name: eson-web-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+    env_file:
+      - .env
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+
+  frontend:
+    profiles: ['app']
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      target: dev
+    container_name: eson-web-frontend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app/frontend
+
+volumes:
+  postgres-data:
+  minio-data:
