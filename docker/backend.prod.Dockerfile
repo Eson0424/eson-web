@@ -24,7 +24,13 @@ RUN pnpm install --frozen-lockfile
 COPY backend ./backend
 
 # Prisma 7 运行时需要生成客户端（build 阶段具备 prisma CLI）
-RUN pnpm --filter backend exec prisma generate \
+#
+# Phase 5-H.2-D 修复：build 阶段按设计不包含 .env，而 prisma.config.ts 使用
+# env('DATABASE_URL')，在**加载配置时**即要求该变量存在（PrismaConfigEnvError）。
+# prisma generate 不会连接数据库，因此这里注入**构建期占位值**：既不是真实凭据，
+# 也不会进入 runtime 镜像 —— runtime 的 DATABASE_URL 仍由容器启动时环境变量注入。
+RUN DATABASE_URL="postgresql://build-placeholder:build-placeholder@127.0.0.1:5432/build_placeholder?schema=public" \
+    pnpm --filter backend exec prisma generate \
  && pnpm --filter backend build
 
 # Prisma 生成产物位于 pnpm store 内（与 @prisma/client 同级的 .prisma），先带出备用

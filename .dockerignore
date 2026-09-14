@@ -7,6 +7,19 @@
 .env
 .env.*
 !.env.example
+# Phase 5-H.2-D：补齐任意层级的 env 与私钥类文件（防止 backend/.env、*.pem
+# 因 pattern 语义差异被带进 build context；esonji.pem 位于仓库外，此处为纵深防御）
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+**/secrets/
 
 # ── 依赖 ──
 node_modules
