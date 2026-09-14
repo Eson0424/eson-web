@@ -1,0 +1,55 @@
+# Eson_web Docker build context 过滤（Phase 5-B）
+#
+# 目标：构建上下文永远不包含真实 .env、本地运行数据、构建产物与依赖。
+# 特别要求：docker build context 中绝不能出现真实 .env。
+
+# ── 环境变量 / Secret ──
+.env
+.env.*
+!.env.example
+
+# ── 依赖 ──
+node_modules
+**/node_modules
+
+# ── 本地媒体存储 / 运行数据 ──
+.data
+**/.data
+
+# ── 构建产物 ──
+dist
+**/dist
+.output
+**/.output
+.nuxt
+**/.nuxt
+.nitro
+**/.nitro
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# ── 测试 / 覆盖率产物 ──
+coverage
+**/coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+
+# ── 版本控制 / 编辑器 / 系统文件 ──
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+.DS_Store
+
+# ── 日志 / 临时文件 ──
+*.log
+**/*.log
+*.tmp
+tmp/

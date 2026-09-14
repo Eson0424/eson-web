@@ -28,8 +28,13 @@ API Base Path：
 Production API 示例：
 
 ```text
-https://api.example.com/api/v1
+https://<SITE_DOMAIN>/api/v1        （V1 单域名部署：站点 / Admin / API / 媒体同源，Phase 5-F）
+https://api.example.com/api/v1      （仅当显式拆分 API 子域时才使用）
 ```
+
+同源部署下 Caddy 把 `/api/*` 与 `/media/*` 转发到 backend，其余路径交给 Nuxt；
+浏览器与服务端（SSR）使用不同的 base：SSR 走 Docker 内网（`NUXT_API_BASE_SERVER`），
+详见 docs/ARCHITECTURE.md §44.1。
 
 Local：
 
@@ -1430,6 +1435,11 @@ metadata
 
 > `storage_key` 只存在于数据库与存储层，**不通过任何 API 返回**。
 > 私有存储路径、bucket 配置、凭证同样不会出现在响应中。
+>
+> 生产环境（Phase 5-E）：`MEDIA_PUBLIC_BASE_URL` 由部署环境注入，缺失时 backend 拒绝启动
+> （不会退化成 `http://localhost:<API_PORT>`）。`url` 始终是
+> `<MEDIA_PUBLIC_BASE_URL>/media/<yyyy>/<mm>/<uuid>.<ext>`，绝不出现磁盘路径
+> （`/srv/eson-media/...`）或 `file://`。详见 docs/ARCHITECTURE.md §28.3。
 
 ---
 

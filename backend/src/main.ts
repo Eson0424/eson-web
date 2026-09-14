@@ -15,6 +15,20 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
   app.setGlobalPrefix('api/v1')
+
+  /**
+   * 信任 1 跳前置反向代理（Phase 5-F：Caddy → backend）。
+   *
+   * 生产拓扑里 backend 只从 Caddy 收到明文 HTTP，因此必须依赖 X-Forwarded-*：
+   * - `@Ip()` / `req.ip` 取 XFF 中「由 Caddy 追加」的真实客户端 IP（联系表单 IP 哈希、
+   *   5 req/hour 限流都依赖它；否则所有访客会共用 Caddy 容器 IP）
+   * - 只信任 1 跳：客户端自己伪造的 X-Forwarded-For 条目不会被采信
+   *
+   * 生产 URL（canonical / og / JSON-LD / media）不依赖请求协议，
+   * 由 NUXT_PUBLIC_SITE_URL 与 MEDIA_PUBLIC_BASE_URL 显式配置为 https。
+   */
+  app.set('trust proxy', 1)
+
   app.use(helmet())
   /**
    * 本地媒体文件通过 `/media/<object-key>` 只读暴露（Phase 4-F.1）。
@@ -59,23 +73,34 @@ async function bootstrap(): Promise<void> {
   app.useGlobalInterceptors(new ResponseInterceptor())
   app.useGlobalFilters(new AllExceptionsFilter())
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Eson_web API')
-    .setDescription('Eson_web REST API — public content, auth foundation and contact')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addTag('health')
-    .addTag('work')
-    .addTag('lab')
-    .addTag('writing')
-    .addTag('experience')
-    .addTag('taxonomy')
-    .addTag('settings')
-    .addTag('auth')
-    .addTag('contact')
-    .addTag('admin')
-    .build()
-  SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig))
+  /**
+   * Swagger / OpenAPI 只在非生产环境暴露（Phase 5-C）。
+   * 生产环境下 /api/docs 与 /api/docs-json 不再注册，避免匿名获取完整 API schema。
+   * 依赖与文档装饰器保持不变，仅决定是否注册路由。
+   */
+  if (!env.isProduction) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Eson_web API')
+      .setDescription('Eson_web REST API — public content, auth foundation and contact')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('health')
+      .addTag('work')
+      .addTag('lab')
+      .addTag('writing')
+      .addTag('experience')
+      .addTag('taxonomy')
+      .addTag('settings')
+      .addTag('auth')
+      .addTag('contact')
+      .addTag('admin')
+      .build()
+    SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig))
+  }
+
+  // 让容器/进程管理器发出的 SIGTERM 触发 Nest 生命周期钩子
+  // （PrismaService.onModuleDestroy → $disconnect），保证优雅停机。
+  app.enableShutdownHooks()
 
   await app.listen(env.port)
 }

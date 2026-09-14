@@ -1942,6 +1942,38 @@ prisma migrate deploy
 prisma migrate dev
 ```
 
+## 73.1 Production Database Initialization（Phase 5-D，已实现）
+
+生产数据库必须是**全新的空数据库**，不复用开发库、不导入开发库 dump。
+
+初始化顺序：
+
+```text
+1. 创建空的 production database（不使用开发库、不复制 volume / dump）
+2. prisma migrate deploy            ← 只应用已提交的 migration，不生成新 migration
+3. 禁止 prisma db seed              ← seed 仅用于开发/QA（源码内已有 NODE_ENV=production 护栏）
+4. 运行 Admin Bootstrap（见 §75）创建唯一管理员
+5. 启动 backend，验证 /api/v1/health 与 /api/v1/auth/login
+```
+
+执行 migration 的位置：CI/部署步骤，或使用生产镜像的 **build 阶段镜像**（`prisma` CLI 不在 runtime 镜像中）：
+
+```bash
+docker build --target build -f docker/backend.prod.Dockerfile -t eson-web-backend:build .
+docker run --rm --network <app-network> \
+  -e DATABASE_URL="postgresql://<user>:<password>@postgres:5432/<db>?schema=public" \
+  -w /app eson-web-backend:build pnpm --filter backend exec prisma migrate deploy
+```
+
+初始化完成后应验证：
+
+```text
+business tables = 25（+ _prisma_migrations）
+_prisma_migrations 无 pending / failed
+所有业务表为空（除 bootstrap 创建的管理员，users = 1）
+不存在 seed 占位内容 / QA contact messages / 开发默认管理员
+```
+
 ---
 
 # 74. Seed Data
@@ -1980,6 +2012,53 @@ ADMIN_PASSWORD
 
 等环境变量初始化。
 
+## 75.1 Admin Bootstrap（Phase 5-D，已实现）
+
+生产环境使用一次性 CLI 创建管理员（**不参与应用启动流程**，不会自动创建账号）：
+
+```bash
+# 生产容器内（dist 已包含该命令，runtime 镜像无需 prisma CLI）
+docker compose -f docker-compose.prod.yml exec backend node dist/bootstrap-admin.js
+
+# 等价 npm script（需要已构建的 dist）
+pnpm --filter backend admin:bootstrap
+```
+
+必填环境变量：
+
+```text
+DATABASE_URL        目标数据库（bootstrap 只打印 host:port/database，不含凭据）
+ADMIN_EMAIL         管理员邮箱（统一小写，与登录查询方式一致）
+ADMIN_PASSWORD      管理员密码
+ADMIN_NAME          可选，默认 Admin
+```
+
+行为与安全约束：
+
+```text
+密码使用 argon2id 哈希（与登录 argon2.verify 同一机制），数据库不保存明文
+创建后回读并校验哈希可用于登录，失败则报 VERIFICATION_FAILED
+拒绝开发默认账号（admin@example.com / dev-only-password）与短于 12 位的密码
+邮箱已存在 → 明确失败（ADMIN_ALREADY_EXISTS），不修改已有账号、不创建重复账号
+错误信息只包含配置键与稳定错误码，绝不输出密码或连接串
+```
+
+稳定错误码：
+
+```text
+MISSING_EMAIL / INVALID_EMAIL / MISSING_PASSWORD
+WEAK_PASSWORD / DEV_DEFAULT_NOT_ALLOWED
+ADMIN_ALREADY_EXISTS / VERIFICATION_FAILED
+```
+
+验证登录：
+
+```bash
+curl -X POST https://<domain>/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"<ADMIN_EMAIL>","password":"<ADMIN_PASSWORD>"}'
+```
+
 ---
 
 # 76. Database Backup
@@ -1999,6 +2078,27 @@ Media
 ```
 
 都可以恢复。
+
+## 76.1 Implemented Backup（Phase 5-G）
+
+实际实现（`docker/backup/backup-db.sh`，一次性 `backup` 服务）：
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-db.sh
+```
+
+```text
+格式      pg_dump --format=custom（-Fc，可用 pg_restore 恢复）
+产物      backup-data 卷：db/eson_web_db_<UTC>.dump + .sha256 + .meta.json
+元数据    host / port / db 名 / 时间 / 格式 / 大小 / sha256 / pg_dump 版本 / Prisma migration 名
+自检      生成后立即 pg_restore --list
+权限      文件 0600、目录 0700（umask 077）
+恢复      restore-db.sh（恢复进隔离目标库；拒绝 eson_web / 源库 / 已存在库）
+验证      verify-recovery.sh（schema + 行数 + 关系 + admin + DB↔Media 一致性）
+```
+
+> 备份卷 `backup-data` 与 `postgres-data` / `media-data` 完全分离；
+> 备份产物绝不进入 Git 或 Docker 镜像。完整流程见 [docs/RECOVERY.md](RECOVERY.md)。
 
 ---
 
@@ -2020,6 +2120,23 @@ Object Storage Backup
 Media URL exists
 File missing
 ```
+
+## 77.1 Implemented Media Backup（Phase 5-G）
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-media.sh
+```
+
+```text
+产物      backup-data 卷：media/eson_web_media_<UTC>.tar.gz + .sha256 + .manifest.sha256 + .meta.json
+结构      保留 media/<yyyy>/<mm>/<uuid>.<ext>，object key 与 storage_key 完全一致
+清单      manifest 记录每个文件相对路径 + sha256；恢复时逐文件比对
+恢复      restore-media.sh（拒绝直接覆盖线上媒体目录，需显式开关）
+一致性    verify-recovery.sh 检查 DB → File（存在 / 大小 / mime）与 File → DB（孤儿文件）
+```
+
+> `media.url` 是上传时写入数据库的绝对 URL；同域恢复无需修改，
+> 换域名恢复需要按 [docs/RECOVERY.md](RECOVERY.md) §14 更新。
 
 ---
 

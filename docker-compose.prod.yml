@@ -1,0 +1,190 @@
+# Eson_web — 生产编排骨架（Phase 5-B）
+#
+# 本文件只建立生产拓扑：显式网络分区、持久卷、健康检查、非 root 运行时、数据库无公网端口。
+# 所有敏感/环境相关配置通过环境变量注入（不使用仓库内 .env；可用 --env-file 指向仓库外的生产环境文件）。
+#
+# 上游阶段已完成：
+# - Phase 5-F：HTTPS / Caddy 单域名反向代理（80/443 唯一入口，见 docs/ARCHITECTURE.md §44.1）
+# - Phase 5-C：密钥 fail-fast（缺失/占位 secret 拒绝启动）+ 生产关闭 Swagger
+# - Phase 5-D：生产数据库初始化（migrate deploy / admin bootstrap，见 README）
+# - Phase 5-E：生产媒体卷、非 root 权限与持久化验证（media-data → /srv/eson-media）
+# - Phase 5-G：备份与恢复（backup / backup-retention 一次性服务 + backup-data 独立卷）
+#
+# 明确延期：
+# - 真实域名 + DNS 下的公网证书签发验证（部署环境条件）
+# - Phase 5-H+：offsite 备份落地（对象存储凭据）、定时调度（cron/systemd timer）、监控告警
+
+name: eson-web-prod
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      # 单域名拓扑：站点 / Admin / API / 媒体共用同一个 origin
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN is required}
+      # 生产必须留空（= Caddy automatic HTTPS）；仅本地 TLS 验证时设为 "tls internal"
+      CADDY_TLS_DIRECTIVE: ${CADDY_TLS_DIRECTIVE:-}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      # edge：对外入口；app：转发到 frontend / backend（backend 不在 edge 上）
+      - edge
+      - app
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # 只验证 Caddyfile 能被 Caddy 成功解析（配置完整性）；
+      # 上游可用性由 depends_on: service_healthy 与各自 healthcheck 保证。
+      # 不伪造 HTTP 探测：站点 TLS 需要真实域名/证书，容器内自探测会误报。
+      test: ['CMD', 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.prod.Dockerfile
+    image: eson-web-frontend:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      # 部署期运行时配置（不写死在镜像里）。
+      # 默认由 SITE_DOMAIN 派生（Phase 5-F：API / 站点 / canonical 全部走同一 HTTPS origin），
+      # 需要拆分域名时可用同名环境变量显式覆盖。
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://${SITE_DOMAIN}/api/v1}
+      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-https://${SITE_DOMAIN}}
+      # SSR 走 Docker 内网直达 backend（Phase 5-F）：不绕公网入口，也不依赖 SSL 回环
+      NUXT_API_BASE_SERVER: http://backend:3001/api/v1
+    networks:
+      - edge
+      - app
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.prod.Dockerfile
+    image: eson-web-backend:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eson}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-eson_web}?schema=public
+      # 同域部署：浏览器请求来自 https://<SITE_DOMAIN>（可显式覆盖）
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://${SITE_DOMAIN}}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      CONTACT_IP_SALT: ${CONTACT_IP_SALT:?CONTACT_IP_SALT is required}
+      # 生产媒体存储（Phase 5-E）：两个变量缺失都会让 backend 拒绝启动（fail-fast），
+      # 避免公开 URL 退化成 localhost 或媒体落进容器可写层。
+      STORAGE_DRIVER: local
+      MEDIA_LOCAL_ROOT: /srv/eson-media
+      # 媒体公开前缀默认与站点同域（Caddy 把 /media/* 转发到 backend）
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-https://${SITE_DOMAIN}}
+    volumes:
+      # 媒体卷：仅 backend 挂载；postgres / caddy 均不得挂载 media-data。
+      # 镜像内已预建 /srv/eson-media 并 chown node:node，命名卷首次初始化继承属主。
+      - media-data:/srv/eson-media
+    networks:
+      - app
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eson}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-eson_web}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      # 只与 backend 同网；不加入 edge/app，也不映射宿主端口
+      - internal
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-eson} -d ${POSTGRES_DB:-eson_web}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backup / Recovery（Phase 5-G）────────────────────────────
+  # 一次性（one-shot）服务，不随 `up -d` 启动；用 `docker compose run --rm` 执行。
+  #   docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-db.sh
+  #   docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-media.sh
+  # 备份卷 backup-data 与 media-data / postgres-data 完全分离；媒体以只读方式挂载。
+  backup:
+    image: postgres:17-alpine
+    profiles: ['ops']
+    entrypoint: ['/bin/sh']
+    command:
+      - -c
+      - 'echo "backup is one-shot: docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-db.sh"; ls -1 /scripts'
+    environment:
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGDATABASE: ${POSTGRES_DB:-eson_web}
+      PGUSER: ${POSTGRES_USER:-eson}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BACKUP_DIR: /backups
+      MEDIA_ROOT: /srv/eson-media
+    volumes:
+      - ./docker/backup:/scripts:ro
+      - backup-data:/backups
+      # 媒体只读：备份能读，但备份容器无法写坏线上媒体
+      - media-data:/srv/eson-media:ro
+    networks:
+      - internal
+
+  # 保留策略（默认 dry-run；加 --apply 才删除）。只需要备份卷，不需要网络。
+  backup-retention:
+    image: node:24-slim
+    profiles: ['ops']
+    entrypoint: ['node', '/scripts/retention.mjs']
+    command: ['--dir', '/backups', '--daily', '7', '--weekly', '4', '--monthly', '3']
+    network_mode: none
+    volumes:
+      - ./docker/backup:/scripts:ro
+      - backup-data:/backups
+
+networks:
+  # 仅 caddy + frontend（对外入口层）
+  edge:
+  # caddy + frontend + backend（应用层）
+  app:
+  # 仅 backend + postgres（数据层：Internet / Caddy / Frontend 均不可达）
+  internal:
+
+volumes:
+  postgres-data:
+  media-data:
+  caddy-data:
+  caddy-config:
+  # 备份独立卷（绝不与 postgres-data / media-data 混用）
+  backup-data:

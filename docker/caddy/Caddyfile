@@ -1,0 +1,70 @@
+# Eson_web — 生产反向代理（Phase 5-F）
+#
+# 拓扑（单域名：站点 / Admin / API / 媒体同一个 origin）：
+#
+#   Internet
+#     ↓  :80 → 308 redirect（Caddy automatic HTTPS）
+#   Caddy :443
+#     ├── /api/*    → backend:3001     REST API（/api/v1/*）
+#     ├── /media/*  → backend:3001     本地媒体只读静态路由（Phase 5-E）
+#     └── 其它       → frontend:3000    Public SSR + /admin/*（Admin 由 Nuxt CSR 处理）
+#
+# 域名不写死在仓库中：由 SITE_DOMAIN 注入（docker-compose.prod.yml → 环境变量）。
+# 证书：Caddy automatic HTTPS（Let's Encrypt / ZeroSSL 自动申请 + 续期），
+#       证书与私钥只存在于 caddy-data / caddy-config 卷，仓库与镜像中都没有私钥。
+#
+# 本地 TLS 验证（仅当没有公网域名 / DNS 时使用）：
+#   CADDY_TLS_DIRECTIVE="tls internal"  → Caddy 内部 CA，**仅本机验证**，不代表生产 HTTPS。
+#   生产部署必须不设置该变量（留空 = automatic HTTPS）。
+{
+	# 不暴露 Caddy 自身的管理 API（默认监听 2019）
+	admin off
+
+	# 统一日志：JSON 到 stdout（由 Docker 收集），不写容器临时文件
+	log {
+		output stdout
+		format json
+	}
+
+	# 可选：需要证书到期邮件通知时，填入真实运维邮箱再启用（env 留空会让配置解析失败，
+	# 因此这里默认不写）：
+	# email ops@<your-domain>
+}
+
+{$SITE_DOMAIN} {
+	# 生产留空（automatic HTTPS）；本地验证可设为 "tls internal"
+	{$CADDY_TLS_DIRECTIVE}
+
+	# 文本压缩（Caddy 不会压缩图片等已压缩类型）
+	encode zstd gzip
+
+	# 安全响应头（Phase 5-F）。
+	# CSP 暂不启用：Nuxt SSR 需要内联 hydration payload / 内联样式，未经验证的严格 CSP
+	# 会破坏站点与视觉效果，属 deferred（见 docs/ARCHITECTURE.md §44.1）。
+	header {
+		# HSTS：仅在使用真实域名 + 真实证书的 HTTPS 环境生效；先不包含 includeSubDomains，
+		# 等确认所有子域都走 HTTPS 后再扩展（阶段报告中的条件项）。
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		X-Frame-Options "SAMEORIGIN"
+		# 不暴露 Caddy 版本
+		-Server
+	}
+
+	# API：必须优先于 frontend fallback 匹配
+	handle /api/* {
+		reverse_proxy backend:3001
+	}
+
+	# 媒体：backend 只读静态路由（object key media/<yyyy>/<mm>/<uuid>.<ext>）
+	handle /media/* {
+		reverse_proxy backend:3001
+	}
+
+	# 其余全部交给 Nuxt（含 /admin/* 与 /admin/login）
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

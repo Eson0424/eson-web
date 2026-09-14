@@ -7,6 +7,18 @@ node_modules/
 .env.*
 !.env.example
 
+# ── Backup artifacts（Phase 5-G：绝不进入 Git）────────────
+# pg_dump 输出、媒体归档、校验和与元数据、临时恢复目录
+backups/
+*.dump
+*.dump.sha256
+*.dump.meta.json
+*.tar.gz
+*.tar.gz.sha256
+*.tar.gz.meta.json
+*.manifest.sha256
+recovery/
+
 # Logs
 *.log
 npm-debug.log*

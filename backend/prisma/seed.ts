@@ -14,6 +14,18 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
 import argon2 from 'argon2'
 
+/**
+ * 安全护栏（Phase 5-D）：seed 仅用于开发与 QA，包含占位内容与开发默认管理员。
+ * 生产数据库初始化必须使用 `prisma migrate deploy` + `admin:bootstrap`，绝不运行 seed。
+ */
+if (process.env.NODE_ENV === 'production') {
+  console.error(
+    '[seed] Refusing to run: NODE_ENV=production. ' +
+      'Production uses `prisma migrate deploy` plus the admin bootstrap command instead of seed.',
+  )
+  process.exit(1)
+}
+
 const connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {

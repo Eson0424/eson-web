@@ -1284,6 +1284,9 @@ MEDIA_LOCAL_ROOT         可选，本地 bucket 根（默认 <backend>/.data）
 MEDIA_PUBLIC_BASE_URL    可选，公开 URL 前缀（本地默认 http://localhost:<API_PORT>）
 ```
 
+> 以上三个变量在 **development / test** 下都有开发友好的 fallback；
+> **production 必须显式配置**（缺配置会 fail-fast，见 §28.3）。
+
 object key 策略（不接受客户端传入 key）：
 
 ```text
@@ -1356,6 +1359,69 @@ Gallery       多选（0..N）；顺序 = mediaIds 数组顺序 → 后端写 so
 职责边界      Picker 不负责 upload / edit alt / delete；不直接调用任何 CMS API
 依赖          无 drag/drop 依赖（排序使用显式控件）
 ```
+
+---
+
+## 28.3 Production Media Storage（Phase 5-E，**VERIFIED**）
+
+V1 生产媒体存储仍是 `LocalStorageDriver`（**不是**对象存储）：文件写在容器内的挂载卷上，
+PostgreSQL 只保存 `storage_key` / `url` / metadata。MinIO / S3 / CDN 均属后续扩展。
+
+生产配置（`docker-compose.prod.yml`）：
+
+```text
+STORAGE_DRIVER          local
+MEDIA_LOCAL_ROOT        /srv/eson-media
+MEDIA_PUBLIC_BASE_URL   由部署环境注入（禁止硬编码域名；生产缺失则启动失败）
+volume                  media-data → /srv/eson-media（命名卷，backend 独占）
+```
+
+生产环境 fail-fast（Phase 5-E 加固）：
+
+```text
+NODE_ENV=production 时
+  MEDIA_PUBLIC_BASE_URL 缺失 → 拒绝启动（否则公开 URL 退化成 http://localhost:<API_PORT>）
+  MEDIA_LOCAL_ROOT 缺失且驱动为 local → 拒绝启动（否则媒体写进容器可写层，卷失效）
+错误只列出配置键名，不含任何值（AGENTS §60）
+```
+
+权限模型（非 root，不使用 `chmod 777`）：
+
+```text
+runtime user          node（uid=1000）
+镜像内预建目录        mkdir -p /srv/eson-media && chown -R node:node /srv/eson-media
+命名卷首次初始化      继承镜像目录属主 → node:node
+目录模式              755 node:node
+```
+
+媒体生命周期不等于容器生命周期（Phase 5-E 实测）：
+
+```text
+容器 restart              → 媒体仍可读取
+容器 delete + recreate     → 媒体仍可读取（同一命名卷）
+镜像 rebuild + recreate    → 媒体仍可读取（卷不受镜像影响）
+```
+
+删除语义（不变）：先做 DB 引用检查 → 删存储对象 → 删 DB 行；
+被 Work / Lab / Writing 引用时返回 `409 CONFLICT` + `details[0].reason = MEDIA_IN_USE`，
+存储文件与 DB 行都保持不变。
+
+安全边界（Phase 5-E 实测）：
+
+```text
+/media/*                没有目录跳转（`..` / 编码 / 反斜杠 / null byte 全部 404）
+容器挂载                  仅 media-data → /srv/eson-media（无宿主目录 bind mount）
+postgres                  只挂载 postgres-data，不挂载 media-data
+API 响应                  不含 storage_key / 绝对路径 / DATABASE_URL / 凭证
+客户端                    不能传入 object key（key 由服务端按校验后的 MIME 生成）
+```
+
+**未实现 / 延期**：对象存储与 CDN、图片优化管线（§29）。
+媒体备份与恢复已在 Phase 5-G 实现（见 §44.2 与 docs/RECOVERY.md），定时调度与 offsite 落地属 Phase 5-H+。
+
+部署依赖（Phase 5-F 已实现）：`MEDIA_PUBLIC_BASE_URL` 默认与站点同域
+（`https://<SITE_DOMAIN>`），Caddy 把 `/media/*` 转发到 backend
+（见 §44.1）；生产环境不再存在「媒体 URL 指向 localhost / 无法访问」的路径。
 
 ---
 
@@ -1783,6 +1849,12 @@ postgres
 minio      （可选 / 当前未运行；应用未接入）
 ```
 
+生产编排（`docker-compose.prod.yml`，Phase 5-B / 5-F）额外包含：
+
+```text
+caddy      HTTPS 反向代理（80/443 唯一对外入口，见 §44.1）
+```
+
 生产环境可以根据部署平台拆分。
 
 ---
@@ -1826,6 +1898,111 @@ www.example.com/admin
 ```
 
 V1 不强制使用独立 Admin 域名。
+
+数据库发布（Phase 5-D 已实现）：
+
+```text
+生产库必须是全新空库 → prisma migrate deploy → 禁止 seed → Admin Bootstrap 创建唯一管理员
+（migration 使用 build 阶段镜像执行；管理员初始化见 docs/DATABASE.md §73.1 / §75.1）
+```
+
+## 44.1 Production Edge / HTTPS（Phase 5-F）
+
+V1 生产边缘是 **单域名 + Caddy automatic HTTPS**（不引入 Nginx / Traefik / CDN / 隧道）：
+
+```text
+Internet
+  ↓  :80 → 308 redirect
+Caddy :443
+  ├── /api/*   → backend:3001    REST API（/api/v1/*）
+  ├── /media/* → backend:3001    本地媒体只读静态路由（§28.3）
+  └── 其它      → frontend:3000   Public SSR + /admin/*（Admin 由 Nuxt CSR 处理）
+```
+
+域名不写死在仓库：`SITE_DOMAIN` 由部署环境注入（`docker-compose.prod.yml` 的必需变量），
+`docker/caddy/Caddyfile` 只引用 `{$SITE_DOMAIN}`；证书与私钥只存在于 `caddy-data` /
+`caddy-config` 卷，仓库与镜像中都没有私钥。
+
+由 `SITE_DOMAIN` 派生的运行时配置（需要拆分域名时用同名变量显式覆盖）：
+
+```text
+CORS_ORIGIN            https://<SITE_DOMAIN>
+NUXT_PUBLIC_API_BASE   https://<SITE_DOMAIN>/api/v1     浏览器请求
+NUXT_PUBLIC_SITE_URL   https://<SITE_DOMAIN>            canonical / OG / JSON-LD
+MEDIA_PUBLIC_BASE_URL  https://<SITE_DOMAIN>            媒体公开前缀
+NUXT_API_BASE_SERVER   http://backend:3001/api/v1       仅 SSR（Docker 内网直达）
+```
+
+SSR 与浏览器使用不同的 API base：SSR 走 Docker 内网，避免生产环境经公网入口「回环」
+到 Caddy（依赖宿主机 DNS/NAT 与证书信任，任一环节不同都会让 SSR 数据加载失败）；
+浏览器始终走公开 HTTPS origin，保持同源（无跨域、Cookie 为第一方）。
+
+网络边界（`docker-compose.prod.yml`）：
+
+```text
+caddy      edge + app
+frontend   edge + app
+backend    app + internal
+postgres   internal（无宿主端口映射）
+```
+
+Caddy 不接入 `internal`，因此无法直接访问 PostgreSQL；没有任何服务挂载 Docker socket。
+
+代理头与客户端 IP：
+
+- Caddy 自动设置 `X-Forwarded-For` / `X-Forwarded-Proto` / `X-Forwarded-Host` 并保留 `Host`
+- backend 设 `trust proxy = 1`，`@Ip()` / `req.ip` 取 Caddy 追加的真实客户端 IP
+  （客户端伪造的 `X-Forwarded-For` 条目不生效）；contact IP 哈希与 5 req/hour 限流按真实客户端分桶
+- 绝对 URL（canonical / OG / JSON-LD / media）不依赖请求协议，全部来自上述显式 HTTPS 配置
+
+安全响应头（Caddy 统一注入，覆盖上游响应）：
+
+```text
+Strict-Transport-Security  max-age=31536000（暂不含 includeSubDomains）
+X-Content-Type-Options     nosniff
+Referrer-Policy            strict-origin-when-cross-origin
+Permissions-Policy         camera=(), microphone=(), geolocation=(), payment=(), usb=()
+X-Frame-Options            SAMEORIGIN
+Server                     移除（不暴露 Caddy 版本）
+```
+
+**CSP 暂未启用（deferred）**：Nuxt SSR 需要内联 hydration payload 与内联样式，
+未经验证的严格 CSP 会直接破坏站点与视觉效果；引入 CSP 必须先做 nonce/hash 方案与全站回归。
+
+本地 TLS 验证 vs 公网 HTTPS：
+
+- 本地：`CADDY_TLS_DIRECTIVE="tls internal"`（Caddy 内部 CA），仅本机验证，**不代表生产 HTTPS**
+- 生产：该变量必须留空（= automatic HTTPS，Let's Encrypt / ZeroSSL 自动申请与续期）
+- 公网证书能否签发取决于真实域名与 DNS，属部署环境条件，不在仓库内验证
+
+## 44.2 Backup / Recovery（Phase 5-G）
+
+备份是**运维工具链**，不进入应用运行时：`docker-compose.prod.yml` 中 `backup` 与
+`backup-retention` 都是 `profiles: ['ops']` 的一次性服务，只有 `docker compose run` 才会执行。
+
+```text
+postgres-data ──pg_dump -Fc──┐
+                             ├── backup-data volume（独立卷，/backups，权限 0700/0600）
+media-data ────tar.gz + manifest──┘
+
+backup            postgres:17-alpine（pg_dump / pg_restore / tar）
+                  挂载 docker/backup（只读脚本）+ backup-data + media-data（只读）
+backup-retention  node:24-slim（保留策略，network_mode: none，只挂 backup-data）
+```
+
+约束：
+
+- 备份卷与 `postgres-data` / `media-data` 完全分离，且不被 backend / frontend / caddy / postgres 挂载
+- 备份脚本不进入任何应用镜像（只读挂载）；备份产物不进入 Git（`.gitignore`）
+- 备份容器对媒体卷是**只读**挂载，无法写坏线上媒体
+- 恢复脚本内置隔离保护：拒绝恢复进 `eson_web` / 源库 / 已存在的库；
+  媒体恢复拒绝直接覆盖线上 `MEDIA_ROOT`（需要显式 `ALLOW_RESTORE_OVER_LIVE_MEDIA=1`）
+- 恢复后必须通过 `verify-recovery.sh`（schema / 行数 / 关系 / admin / DB↔File / 孤儿文件）
+
+媒体一致性：数据库中的 `media.storage_key` 必须与恢复后的文件路径逐一对得上
+（文件存在、大小一致、magic bytes 与 `mime_type` 一致），且恢复目录中不允许出现孤儿文件。
+
+完整操作步骤、RPO/RTO 与灾难恢复清单见 [docs/RECOVERY.md](RECOVERY.md)。
 
 ---
 

@@ -39,6 +39,17 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    /**
+     * 仅服务端（SSR）使用的 API base（Phase 5-F）。
+     *
+     * 生产拓扑是 Caddy → frontend / backend，frontend 的 SSR 请求应该走 Docker 内网
+     * （例如 http://backend:3001/api/v1），而不是经公网入口回环到 Caddy：
+     * 回环依赖宿主机 DNS/NAT 与证书信任，任一环节不同都会让 SSR 数据加载失败。
+     * 留空 = 与 public.apiBase 相同（本地开发行为不变）。
+     * 部署时通过 NUXT_API_BASE_SERVER 注入。
+     */
+    apiBaseServer: '',
+
     public: {
       // 本地默认值仅用于开发；生产通过 NUXT_PUBLIC_API_BASE 覆盖。
       apiBase: 'http://localhost:3001/api/v1',
