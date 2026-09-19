@@ -59,3 +59,11 @@ Desktop.ini
 ehthumbs.db
 $RECYCLE.BIN/
 .DS_Store
+
+# ── 本地专用 ──────────────────────────────────────────
+# 一键启动脚本（含本机绝对路径，不适合公开）
+start-local.ps1
+logs/
+
+# 内部开发流程文件（不属于产物）
+AGENTS.md

@@ -30,9 +30,18 @@ STARTED="$(now_epoch)"
 log "media backup start: root=$MEDIA_ROOT"
 
 # 1) 清单（相对路径 + sha256）。object key 为 uuid 形式，不含空白字符。
-(
-	cd "$MEDIA_ROOT" && find . -type f | LC_ALL=C sort | xargs sha256sum
-) > "$MANIFEST" || fail "failed to build media manifest"
+#
+# Phase 5-H.2-J 修复：媒体目录为空时不得让 xargs 以「无参数」方式调用 sha256sum ——
+# 那会让 sha256sum 去读 stdin 并输出一条无关哈希，使 manifest 条目数（1）与归档
+# 条目数（0）不一致，导致空数据集下备份必然失败。空目录时应产出空 manifest。
+MEDIA_FILES="$(find "$MEDIA_ROOT" -type f | wc -l | tr -d ' ')"
+if [ "$MEDIA_FILES" -eq 0 ]; then
+	: > "$MANIFEST"
+else
+	(
+		cd "$MEDIA_ROOT" && find . -type f | LC_ALL=C sort | xargs sha256sum
+	) > "$MANIFEST" || fail "failed to build media manifest"
+fi
 
 FILE_COUNT="$(wc -l < "$MANIFEST" | tr -d ' ')"
 TOTAL_BYTES="$(

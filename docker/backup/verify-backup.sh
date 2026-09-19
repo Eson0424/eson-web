@@ -22,8 +22,21 @@ case "$FILE" in
 *.tar.gz)
 	tar -tzf "$FILE" > /dev/null || fail "tar cannot read archive: $(basename "$FILE")"
 	log "tar OK: $(basename "$FILE")"
-	[ -s "$FILE.manifest.sha256" ] || fail "manifest missing or empty: $(basename "$FILE").manifest.sha256"
-	log "manifest present: $(basename "$FILE").manifest.sha256"
+	MANIFEST="$FILE.manifest.sha256"
+	[ -f "$MANIFEST" ] || fail "manifest missing: $(basename "$MANIFEST")"
+
+	# Phase 5-H.2-J 修复：空媒体数据集下 manifest 合法地为空（0 条目）。
+	# 完整性判据改为「manifest 条目数必须与归档内容一致」：
+	#   - manifest 非空 -> 正常记录条目数
+	#   - manifest 为空 -> 仅当归档确实不含任何文件时才接受
+	if [ -s "$MANIFEST" ]; then
+		log "manifest present: $(basename "$MANIFEST") ($(wc -l < "$MANIFEST" | tr -d ' ') entries)"
+	else
+		ARCHIVED="$(tar -tzf "$FILE" | grep -v '/$' | grep -v '^\.$' | wc -l | tr -d ' ')"
+		[ "$ARCHIVED" -eq 0 ] \
+			|| fail "manifest is empty but archive contains $ARCHIVED entries: $(basename "$FILE")"
+		log "manifest empty and archive has 0 files (empty media dataset) — accepted"
+	fi
 	;;
 *)
 	fail "unknown backup type: $(basename "$FILE")"

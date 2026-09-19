@@ -47,6 +47,14 @@ backup-data 与 postgres-data / media-data 完全分离；
 | 数据库 | `docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-db.sh` | `db/eson_web_db_<UTC>.dump` + `.sha256` + `.meta.json` |
 | 媒体 | `docker compose -f docker-compose.prod.yml run --rm backup /scripts/backup-media.sh` | `media/eson_web_media_<UTC>.tar.gz` + `.sha256` + `.manifest.sha256` + `.meta.json` |
 
+**调用方式（Phase 5-H.2-J 明确）**：`docker/backup/*.sh` 在 Git 中记录为 **100644（无可执行位）**，
+而 compose 的 `backup` 服务 entrypoint 是 `/bin/sh` —— 因此上面两条命令实际等价于
+`sh /scripts/backup-db.sh`。**统一采用这一种方式**（不要依赖可执行位，也不要混用两种调用方式）：
+
+- 通过 compose：`docker compose … run --rm backup /scripts/<script>.sh [args]`
+- 直接在容器内：`sh /scripts/<script>.sh [args]`
+- 例外：`cleanup-backups.sh` 需要 `node`，只能通过 `backup-retention` 服务执行（见 §16）
+
 ---
 
 ## 3. Backup Locations
@@ -289,9 +297,20 @@ docker compose -f docker-compose.prod.yml run --rm backup-retention \
 
 策略实现：`docker/backup/retention.mjs`；单测：`node --test docker/backup/retention.spec.mjs`（无新增依赖）。
 
+**自动化（Phase 5-H.2-J）**：retention 已纳入每日自动任务，且**只在 DB 备份 + media 备份 + 校验全部成功后**执行；
+任一步失败则跳过 retention（不会出现「备份失败却删除旧备份」）。自动任务使用
+`--max-delete 20` 作为误删安全阀。见 §21。
+
 ---
 
 ## 17. Offsite Copy
+
+> **当前状态（Phase 5-H.2-K 预检后）**：`OFFSITE BACKUP = BLOCKED / NOT IMPLEMENTED`。
+> 服务器上不存在任何已批准的 provider / endpoint / bucket / 凭据（无 offsite 环境变量、无 rclone/aws/s3cmd/mc/coscmd/ossutil、
+> 无凭据文件、无 offsite systemd/cron 任务）。本地自动化备份已上线（§21），但**本地备份不等于 offsite 备份** ——
+> 当前备份与生产数据位于同一台 VPS、同一个 Docker 数据根目录。
+>
+> 实施所需的**人工输入清单**与 **provider-neutral 设计**见 §22；在人工提供 provider 之前，本项保持 BLOCKED。
 
 策略（**当前仅定义，未接入任何账号/凭据**）：
 
@@ -323,7 +342,7 @@ offsite copy（对象存储 / 远程主机）
 |---|---|
 | 目标 | ≤ 24 小时 |
 | 达成方式 | 每日一次数据库 + 媒体备份（Phase 5-H+ 用 cron / systemd timer 落地） |
-| 当前状态 | **设计满足**（备份可覆盖 24 小时窗口）；调度器未部署 → 生产 RPO 尚未真正生效 |
+| 当前状态（Phase 5-H.2-J） | **已生效**：systemd timer 每日 03:30 自动执行 DB + media 备份与校验（见 §21）。RPO ≤ 24h 在调度器正常运行时成立；**若 timer 被停用或备份持续失败，RPO 不再受保障**（当前无外部告警通道，需人工查 `eson-backup-status.sh` 或 journal） |
 
 ---
 
@@ -366,6 +385,172 @@ offsite copy（对象存储 / 远程主机）
 
 ---
 
+## 21. Automation（Phase 5-H.2-J — 本机自动备份 / 保留 / 失败告警）
+
+本节描述**已在生产服务器实际部署并验证**的自动化。范围仅限 G1（调度）/ G3（保留自动化）/ G4（失败检测）；
+**G2 offsite、G5 真实媒体恢复、G6 完整 DR 演练仍未实施/未验证**（见各节状态说明）。
+
+### 21.1 调度器
+
+| 项 | 值 |
+|---|---|
+| 类型 | **systemd timer**（未使用 cron；不部署第二套调度） |
+| 单元 | `eson-backup.timer` → `eson-backup.service`（oneshot） |
+| 计划 | **每日 03:30（Asia/Shanghai）**，`RandomizedDelaySec=300`，`Persistent=true`（错过则补跑） |
+| 并发保护 | 运行器内 `flock -n /run/eson-backup.lock`（不会并发执行两份） |
+| 失败依赖 | `OnFailure=eson-backup-alert.service` |
+
+### 21.2 执行链（任一步失败即整体失败）
+
+```text
+1) DB backup      docker compose … run --rm backup /scripts/backup-db.sh
+2) Media backup   docker compose … run --rm backup /scripts/backup-media.sh
+3) Verify         校验最新 dump（pg_restore --list）与最新 media 归档（tar + manifest 一致性）
+4) Retention      仅当 1–3 全部成功：backup-retention --dir /backups --daily 7 --weekly 4 --monthly 3 --max-delete 20 --apply
+5) 成功标记       /var/lib/eson-backup/LAST_SUCCESS（并清除 LAST_FAILURE）
+```
+
+**不允许**出现的状态：DB 成功 / media 失败但任务仍报成功；**备份或校验失败时绝不执行 retention 删除**。
+
+### 21.3 失败行为与告警（本机）
+
+| 项 | 行为 |
+|---|---|
+| 退出码 | 任一步失败 → 运行器 exit 非零 → systemd `Result=exit-code`、`ExecMainStatus≠0` |
+| 失败标记 | `/var/lib/eson-backup/LAST_FAILURE`（含 `failedAtUtc` / `step` / `host`，0600） |
+| 告警单元 | `eson-backup-alert.service`（由 `OnFailure=` 触发） |
+| 告警出口 | `journalctl -u eson-backup-alert`、`journalctl -t eson-backup-alert`、`/var/log/eson-backup-failures.log`（0600） |
+| 外部通知渠道 | **EXTERNAL ALERT CHANNEL = NOT CONFIGURED**（未接入 SMTP / Telegram / Slack / webhook / 云服务；本阶段不注册任何账号） |
+
+### 21.4 常用命令
+
+```bash
+# 手动立即执行一次完整任务（含 retention）
+sudo systemctl start eson-backup.service
+
+# 状态速查（timer / 上次成功 / 上次失败 / 备份清单 / 近期日志）
+sudo /usr/local/bin/eson-backup-status.sh
+
+# 单步手动执行（与自动任务同一条链）
+docker compose --env-file /etc/eson-web/eson-web.production.env -f /opt/eson-web/docker-compose.prod.yml \
+  run --rm backup /scripts/backup-db.sh
+docker compose --env-file /etc/eson-web/eson-web.production.env -f /opt/eson-web/docker-compose.prod.yml \
+  run --rm backup /scripts/backup-media.sh
+
+# 手动校验某个备份
+docker compose --env-file /etc/eson-web/eson-web.production.env -f /opt/eson-web/docker-compose.prod.yml \
+  run --rm backup /scripts/verify-backup.sh /backups/db/<file>.dump
+
+# 保留策略 dry-run（默认不删除）
+docker compose --env-file /etc/eson-web/eson-web.production.env -f /opt/eson-web/docker-compose.prod.yml \
+  run --rm backup-retention --dir /backups --daily 7 --weekly 4 --monthly 3
+
+# 隔离恢复演练（绝不指向生产库；脚本自带保护）
+sh docker/backup/restore-db.sh <backup-file>   # 需 TARGET_DB 等环境变量，见 §7.1
+```
+
+### 21.5 备份位置与权限
+
+| 项 | 值 |
+|---|---|
+| 位置 | Docker volume `backup-data` → `/backups`（`db/` 与 `media/` 子目录） |
+| 文件权限 | `0600`，属主 root（备份含全部数据库内容，禁止 world-readable） |
+| 与生产隔离 | 与 `postgres-data` / `media-data` 卷分离；`media-data` 在备份容器中以**只读**挂载 |
+| 暴露面 | **不经 Caddy 暴露、不映射任何 host 端口、不放入仓库或镜像** |
+
+### 21.6 保留策略的实际语义（重要）
+
+- 策略按 **UTC 日期 / ISO 周 / UTC 月** 分组，每组保留最新一份；**同一 UTC 日多次运行只保留最新一份**（较早的同日备份会被判定为被取代而删除）。
+- 主文件的附属文件（`.sha256` / `.manifest.sha256` / `.meta.json`）**始终与主文件同组保留或删除**。
+- 无法识别的文件名与未来时间戳永不删除。
+
+### 21.7 本阶段验证过的事实
+
+| 验证 | 结果 |
+|---|---|
+| scheduler 配置校验 | `systemd-analyze verify` 通过；timer `active/enabled`，next elapse 03:30 CST |
+| 手动执行自动任务 | `Result=success`、`ExecMainStatus=0`、时长 2–3 s（DB + media + verify + retention） |
+| 失败路径（真实） | media 备份失败 → exit 1 → `OnFailure` → 告警单元 → 标记 + 日志 + journal（已观测） |
+| 失败路径（受控注入） | 临时指向不存在的 compose 文件 → exit 1 → 告警链路完整触发；注入已完全回滚 |
+| 保留策略 | dry-run 与 apply 结果一致；`--max-delete 20` 生效；sidecar 成组处理 |
+| 幂等性 | 连续两次运行生成不同时间戳文件，各自校验通过 |
+| 生产影响 | 无：4 个生产容器未重启（restart count 0）、DB 未变更 |
+
+### 21.8 仍未完成的项（勿误读为已完成）
+
+| 项 | 状态 |
+|---|---|
+| G2 Offsite 备份 | **NOT IMPLEMENTED**（无目标、无凭据、无上传脚本、无调度） |
+| G5 真实媒体恢复验证 | **NOT VERIFIED**（当前 production media dataset = 0；空数据集下的备份/校验已通过，但不构成真实文件恢复证明） |
+| G6 完整站点 DR 演练 | **NOT DRILLED**（仅完成 PostgreSQL + 媒体一致性的隔离恢复演练） |
+| 外部告警渠道 | **NOT CONFIGURED**（仅本机 journal / 日志 / 标记） |
+
+---
+
+## 22. Offsite Backup — Provider-Neutral Design（Phase 5-H.2-K 预检：未实施）
+
+**状态：BLOCKED — 等待人工提供 offsite provider。**
+
+本节是**设计**，不是已实现能力。服务器预检结果：无 provider、无 endpoint、无 bucket、无凭据、无上传工具。
+因此本阶段**未创建任何云资源、未上传任何备份、未安装任何工具、未新增任何凭据文件**。
+
+```text
+Local Backup (backup-data volume)
+      ↓  仅当 DB backup + DB verify + media backup + media verify 全部 PASS
+Verified Backup Group（dump + .sha256 + .meta.json ／ tar.gz + .sha256 + .manifest.sha256 + .meta.json）
+      ↓  本地 sha256 复核 → 加密/完整性策略
+Offsite Uploader（host 级 systemd oneshot，独立于应用容器）
+      ↓  put object + list prefix + get object（最小权限）
+Private Remote Storage（bucket/prefix，禁止公开读）
+      ↓  remote verification（size + checksum/read-back）
+Group Completion Marker（`_complete/<group-id>.json` 最后写）
+      ↓  写入 offsite 确认状态
+Local Retention（仅删除已确认 offsite 的备份组）
+```
+
+### 22.1 设计决策（provider-neutral）
+
+| 问题 | 设计结论 |
+|---|---|
+| uploader 从哪里运行 | **宿主 systemd oneshot**（新增 `eson-offsite.service`/`.timer` 或串联在 `eson-backup.service` 之后的 ExecStartPost），**不在应用容器内**。不修改 `docker-compose.prod.yml` 的运行时拓扑 |
+| 使用什么权限 | **最小权限**：仅 `put object` / `list prefix` / `get object`；**禁止** bucket 删除、账号或 IAM 管理、访问无关资源。若 provider 无法收窄到该范围 → 停止实施 |
+| credential 放在哪里 | 独立文件（建议 `/etc/eson-web/eson-offsite.env`，`root:root 0600`，ubuntu 不可读），或使用实例角色；**不得**进入 Git / Dockerfile / compose / unit 明文 / argv / shell history / journal / 备份 metadata / 文件名。凭据必须与 `POSTGRES_PASSWORD`、`JWT_SECRET`、`CONTACT_IP_SALT`、`ADMIN_PASSWORD` **完全独立** |
+| 如何选择要上传的文件 | **不使用通配符**。由备份任务输出「本次已校验通过的组」的**显式文件名清单**（同一时间戳的一组：dump + sha256 + meta；tar.gz + sha256 + manifest + meta），uploader 只上传清单内文件 |
+| 如何防止上传未验证备份 | uploader **只在上游 verify 成功后**被调用；uploader 自身**先复核本地 `.sha256`** 再上传；任一文件校验失败 → 非零退出，不上传该组 |
+| 如何处理重复上传 | 采用**不可变时间戳对象名**（`<prefix>/db/eson_web_db_<UTC>.dump` 等）。上传前 `HEAD`/`list` 检查：**已存在且 size + checksum 一致 → 跳过**；存在但不一致 → **失败并告警，绝不静默覆盖** |
+| 如何处理网络失败 | DNS 失败 / 超时 / RST / 5xx → 有界重试（指数退避，例如 3 次）；重试耗尽 → 非零退出 → 触发既有 `OnFailure` 告警链路（§21.3）。**不允许「上传失败但任务显示成功」** |
+| 如何处理远端已有对象 | 见「重复上传」：一致则跳过；不一致则失败并保留现场，等待人工判断 |
+| 如何处理本地 retention | **retention 不得删除尚未确认 offsite 的备份组**。实现方式：每组写入本地状态（例如 `/var/lib/eson-backup/offsite-confirmed/<group-id>`），retention 步骤在读该状态后跳过未确认组。**策略本身（daily 7 / weekly 4 / monthly 3）不变**，只增加「未确认 offsite 的组不删除」这一保护条件。本次**未修改** retention 行为 |
+| 如何验证远端完整性 | 至少四层：① object exists；② 远端 size == 本地 size；③ 远端对象 `Content-MD5`/`ETag`（或对象自带的 sha256 metadata）与本地 `.sha256` 比对；④ 读回抽样（ranged GET）并本地重新计算哈希。**若 provider 无法提供 checksum，只能做到 ①②④，报告中必须如实说明实际层次，不得声称 "checksum verified"** |
+| 组完成标记 | 所有对象上传 + 校验通过后，**最后**写入 `_complete/<group-id>.json`（含对象清单、每个对象的 sha256 与 size、上传时间、provider/bucket/prefix）。恢复与 retention 都以该 marker 为「这一组可用」的唯一依据 |
+| 如何恢复 | 以 marker 为入口下载整组 → 逐文件 sha256 校验 → 使用 §7.1 的隔离恢复流程（`restore-db.sh` 拒绝生产库）→ `verify-recovery.sh` 全量验证 → 记录耗时。**永远不直接恢复到生产库** |
+| 加密 | 优先使用 provider 的 **server-side encryption**（SSE，provider-managed key）。若需要客户自管密钥或客户端加密（如 age/gpg），**必须由人工提供密钥策略**（生成、保存、轮换、丢失后果）；**不得**复用任何现有生产 secret 作为备份加密密钥。本阶段未创建任何密钥 |
+
+### 22.2 实施方式限制（预检结论）
+
+- 上传工具（rclone / aws-cli / s3cmd / mc / coscmd / ossutil 之一）**当前均未安装**；安装属于服务器软件变更，需在实施阶段获得明确批准。
+- 备份与生产数据当前位于同一 VPS、同一 Docker 数据根目录 → 单机故障即全损；offsite 是唯一的异地保障。
+
+### 22.3 实施所需人工输入（Required manual inputs）
+
+以下每一项都必须由人工明确提供后才能进入实施阶段（缺少任一项则保持 BLOCKED）：
+
+| # | 需要提供 | 说明 |
+|---|---|---|
+| 1 | **provider** | Tencent COS / AWS S3 / Alibaba OSS / Backblaze B2 / Cloudflare R2 / 自建 S3-compatible，或明确指定其他 |
+| 2 | **region** | 例如 `ap-beijing` / `us-east-1` 等 |
+| 3 | **endpoint** | 非 AWS 或自建场景必需（例如 `https://cos.ap-beijing.myqcloud.com`） |
+| 4 | **bucket / container** | 名称（需人工创建，本流程不自动创建） |
+| 5 | **prefix** | 例如 `eson-web/prod`（用于隔离与生命周期规则） |
+| 6 | **credential method** | access key pair 写入受保护文件 / 实例角色 / 其他；并确认该文件路径 |
+| 7 | **credential permissions** | 确认已按最小权限授予（put + list prefix + get）；若无法收窄 → 停止 |
+| 8 | **encryption policy** | provider-managed SSE / customer-managed SSE / 客户端加密（需给密钥策略） |
+| 9 | **remote lifecycle** | 远端保留/版本化/生命周期规则（与本地 daily 7 / weekly 4 / monthly 3 的关系） |
+| 10 | **操作批准** | 批准「安装上传工具」「创建 offsite 凭据文件」「把 offsite 步骤接入 systemd 调度」这三项变更 |
+| 11 | **成本确认** | 确认存储与流量（含恢复时的出网流量）成本可接受 |
+
+---
+
 ## 附：脚本与配置索引
 
 | 位置 | 作用 |
@@ -379,3 +564,16 @@ offsite copy（对象存储 / 远程主机）
 | `docker/backup/cleanup-backups.sh` | 保留策略入口（默认 dry-run） |
 | `docker/backup/retention.mjs` / `retention.spec.mjs` | 保留策略实现与测试 |
 | `docker-compose.prod.yml`（`backup` / `backup-retention`） | 一次性运维服务与 `backup-data` 卷 |
+
+### 本机调度与告警（Phase 5-H.2-J）
+
+| 位置 | 作用 |
+|---|---|
+| `/etc/systemd/system/eson-backup.timer` | 每日 03:30（Asia/Shanghai）触发，`Persistent=true`，随机延迟 ≤300s |
+| `/etc/systemd/system/eson-backup.service` | oneshot：执行 `/usr/local/bin/eson-backup-run.sh`，`OnFailure=eson-backup-alert.service` |
+| `/etc/systemd/system/eson-backup-alert.service` | 失败告警单元（本机：journal + 日志 + 标记文件） |
+| `/usr/local/bin/eson-backup-run.sh` | 任务运行器：DB 备份 → media 备份 → 校验 → （仅成功时）retention |
+| `/usr/local/bin/eson-backup-alert.sh` | 写 `/var/lib/eson-backup/LAST_FAILURE`、追加 `/var/log/eson-backup-failures.log`、`logger -t eson-backup-alert` |
+| `/usr/local/bin/eson-backup-status.sh` | 状态速查（timer / 上次成功 / 上次失败 / 备份清单 / 近期日志） |
+| `/etc/eson-web/eson-backup.conf` | 非敏感配置（路径、`ESON_RETENTION_MAX_DELETE`），root:root 0600 |
+| `/etc/eson-web/eson-web.production.env` | 生产凭据来源（root:root 0600），**unit 文件中不含任何 secret** |
