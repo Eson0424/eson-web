@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { ExperienceSummary } from '~/types/experience'
+import { formatYearMonth } from '~/utils/date-display'
+import { isPublicEmploymentTypeVisible } from '~/utils/experience-display'
 
 const { entry, index } = defineProps<{
   entry: ExperienceSummary
@@ -7,22 +9,46 @@ const { entry, index } = defineProps<{
   index?: number
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 const displayIndex = computed(() =>
   typeof index === 'number' ? String(index).padStart(2, '0') : null,
 )
 
+/** 展示为 `YYYY.MM — YYYY.MM`；当前经历为 `YYYY.MM — 至今 / PRESENT` */
 const period = computed(() => {
-  const end = entry.current ? t('common.present') : entry.endDate
-  const range = [entry.startDate, end].filter(Boolean).join(' — ')
+  const start = formatYearMonth(entry.startDate)
+  const end = entry.current ? t('common.present') : formatYearMonth(entry.endDate)
+  const range = [start, end].filter(Boolean).join(' — ')
 
   return range.length > 0 ? range : null
 })
 
-const organizationLine = computed(() =>
-  [entry.organization, entry.employmentType, entry.location].filter(Boolean).join(' · '),
-)
+/**
+ * employmentType 在数据库里是枚举值（FULL_TIME 等）。
+ * Public 页面通过 i18n 映射为可读文案；`OTHER`（学历等）与没有映射的取值都不展示，
+ * 避免把数据库枚举泄露给访客。
+ */
+const employmentTypeLabel = computed(() => {
+  const value = entry.employmentType
+
+  if (!isPublicEmploymentTypeVisible(value)) {
+    return null
+  }
+
+  const key = `experience.employmentTypes.${value}`
+
+  return te(key) ? t(key) : null
+})
+
+const organizationLine = computed(() => {
+  const parts = [entry.organization, employmentTypeLabel.value, entry.location].filter(
+    (part): part is string => Boolean(part),
+  )
+
+  // 「独立开发 / 自由职业」这类条目：组织名与 employmentType 文案相同，去重后只显示一次
+  return parts.filter((part, index) => parts.indexOf(part) === index).join(' · ')
+})
 </script>
 
 <template>

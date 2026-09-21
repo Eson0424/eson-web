@@ -178,9 +178,22 @@ Eson_web 面向多个用户群体。
 
 ## 4.2 Hero 主标题
 
-正式使用：
+正式使用（V1.2.0 起，已同步 `frontend/app/data/home.ts` 与单元测试）：
 
-> **SOFTWARE ENGINEER & BUILDER**
+```text
+从界面，到产品。
+From interfaces to products.
+```
+
+定位（Role）：
+
+```text
+AI 增强型数字产品开发者
+AI-Enhanced Digital Product Developer
+```
+
+> 说明：`SOFTWARE ENGINEER & BUILDER` 不再作为 Hero 主标题，但仍作为品牌补充描述保留在
+> 页脚 tagline（`i18n app.tagline`）与 `site.webmanifest` 中。
 
 ---
 
@@ -424,18 +437,19 @@ HOME
 
 ESON
 
-SOFTWARE
-ENGINEER
-&
-BUILDER
+从界面，到产品。
+From interfaces to products.
 
-I BUILD DIGITAL PRODUCTS,
-AI SYSTEMS & INTERACTIVE EXPERIENCES.
+AI 增强型数字产品开发者
+AI-Enhanced Digital Product Developer
 
-● AVAILABLE
+● 可接受合作 / ● AVAILABLE
 
 ↓ EXPLORE
 ```
+
+> 实现说明：方括号标签实际渲染为事实性定位标签（`作品集 / Portfolio`），不伪装系统监控状态；
+> 主标题下方的说明文案为定位句（见 `frontend/app/data/home.ts` 的 `hero.lead`）。
 
 具体文案可以在 UI/Content 阶段进一步调整。
 
@@ -1414,7 +1428,7 @@ Project Name       Eson_web
 Brand              ESON
 Product Type       Personal Brand Website
 Audience            Multiple
-Positioning        Software Engineer & Builder
+Positioning        AI-Enhanced Digital Product Developer
 Frontend Direction  Vue
 Language            Chinese + English
 Default Language    Chinese

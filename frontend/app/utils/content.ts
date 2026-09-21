@@ -22,6 +22,20 @@ const LAB_SECTION_IDS: LabSectionId[] = [
   'observations',
 ]
 
+/**
+ * Markdown 无序列表项（`- item` / `* item`）。
+ * 要求 `-` / `*` 之后必须有空白，避免把 `*emphasis*` 或 `---` 误判成列表项。
+ */
+const BULLET_PATTERN = /^[-*]\s+(.+)$/
+
+/** 解析后的章节：段落与列表分开，交给 ProseContent 分别渲染 */
+export interface ParsedContentSection<TId extends string> {
+  id: TId
+  title: string
+  paragraphs: string[]
+  bullets: string[]
+}
+
 export function slugifyHeading(value: string): string {
   return value
     .toLowerCase()
@@ -34,27 +48,32 @@ export function slugifyHeading(value: string): string {
  * 把 API 返回的 content 字符串拆成章节。
  * V1 的 content 是 Markdown 风格文本（DATABASE §11 允许 Markdown）；
  * 这里只做最小解析：以 `## 标题` 分段，无标题时整体作为一个章节。
+ *
+ * 列表：`- item` / `* item` 归入该章节的 `bullets`（渲染顺序为「先段落、后列表」，
+ * 与 ProseContent 的输出顺序一致）；其余非空行都是段落。
  */
 export function parseContentSections<TId extends string>(
   content: string | null | undefined,
   ids: TId[],
   fallbackTitle: string,
-): Array<{ id: TId; title: string; paragraphs: string[] }> {
+): Array<ParsedContentSection<TId>> {
   const text = (content ?? '').trim()
 
   if (text.length === 0) {
     return []
   }
 
-  const blocks: Array<{ id: TId; title: string; paragraphs: string[] }> = []
+  const blocks: Array<ParsedContentSection<TId>> = []
   let currentTitle = fallbackTitle
   let currentParagraphs: string[] = []
+  let currentBullets: string[] = []
 
   const flush = () => {
     const paragraphs = currentParagraphs.map((line) => line.trim()).filter(Boolean)
+    const bullets = currentBullets.map((line) => line.trim()).filter(Boolean)
 
     // 没有正文就不要生成章节：避免内容以标题开头时多出一个虚假的“回退章节”
-    if (paragraphs.length === 0) {
+    if (paragraphs.length === 0 && bullets.length === 0) {
       return
     }
 
@@ -65,6 +84,7 @@ export function parseContentSections<TId extends string>(
       id: (slugifyHeading(currentTitle) as TId) || (fallbackId as TId),
       title: currentTitle,
       paragraphs,
+      bullets,
     })
   }
 
@@ -76,10 +96,18 @@ export function parseContentSections<TId extends string>(
 
       currentTitle = heading[1].trim()
       currentParagraphs = []
+      currentBullets = []
       continue
     }
 
     if (line.trim().length === 0) {
+      continue
+    }
+
+    const bullet = BULLET_PATTERN.exec(line.trim())
+
+    if (bullet?.[1]) {
+      currentBullets.push(bullet[1].trim())
       continue
     }
 
@@ -97,6 +125,7 @@ export function toWorkSections(content: string | null | undefined, title: string
     kind: section.id === 'technology' ? ('technology' as const) : ('text' as const),
     title: section.title || `0${index + 1}`,
     paragraphs: section.paragraphs,
+    bullets: section.bullets,
   }))
 }
 
@@ -111,6 +140,7 @@ export function toLabSections(content: string | null | undefined, title: string)
           : ('text' as const),
     title: section.title,
     paragraphs: section.paragraphs,
+    bullets: section.bullets,
   }))
 }
 

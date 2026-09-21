@@ -32,11 +32,11 @@ const EN: ContactContent = {
   hero: {
     kicker: 'Contact',
     headline: ["Let's build", 'something', 'together.'],
-    lead: 'Have an idea, a product, or a problem worth solving? Tell me what you are working on.',
+    lead: 'If you are building a web product, need frontend or full-stack development, or are exploring practical applications of AI, I would be glad to hear from you. I am currently open to project collaboration.',
   },
   methods: {
     title: 'Contact methods',
-    lede: 'Email is the direct channel — for project enquiries, collaboration, and questions about the work on this site.',
+    lede: 'Email is the direct channel for project enquiries, collaboration, and questions about the work on this site. You can also use the form below.',
     channels: CHANNELS,
   },
   form: {
@@ -53,11 +53,11 @@ const ZH: ContactContent = {
   hero: {
     kicker: '联系',
     headline: ['一起构建', '一些真正', '有用的东西。'],
-    lead: '如果你有想法、产品，或者一个值得解决的问题，欢迎告诉我你正在做什么。',
+    lead: '如果你正在构建一个 Web 产品、需要前端或全栈开发，或者正在探索 AI 在实际业务中的应用，欢迎联系我。我目前接受项目合作。',
   },
   methods: {
     title: '联系方式',
-    lede: '邮箱是直接联系渠道，适合项目咨询、合作，以及关于本站内容的交流。',
+    lede: '邮箱是直接联系渠道，适合项目咨询、合作，以及关于本站内容的交流；也可以使用下方表单。',
     channels: CHANNELS,
   },
   form: {

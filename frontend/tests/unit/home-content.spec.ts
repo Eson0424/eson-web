@@ -12,14 +12,26 @@ describe('home content contract', () => {
     expect(Object.keys(HOME_CONTENT).sort()).toEqual(['en-US', 'zh-CN'])
   })
 
-  it('keeps the fixed brand headline in every locale', () => {
+  it('uses the approved hero headline and role per locale', () => {
+    // Hero 主标题已由用户确认更新（PRD §4.2 / AGENTS §45 同步更新）
+    expect(HOME_CONTENT['zh-CN'].hero.headline).toEqual(['从界面，到产品。'])
+    expect(HOME_CONTENT['en-US'].hero.headline).toEqual(['From interfaces to products.'])
+
     for (const locale of LOCALES) {
       const { hero } = HOME_CONTENT[locale]
 
-      expect(hero.brand).toBe('ESON')
-      expect(hero.headline).toEqual(['Software', 'Engineer', '&', 'Builder'])
-      expect(hero.primaryAction.to).toBe('#work')
+      expect(hero.brand, locale).toBe('ESON')
+      expect(hero.primaryAction.to, locale).toBe('#work')
+      expect(hero.kicker.length, locale).toBeGreaterThan(0)
+      expect(hero.lead.length, locale).toBeGreaterThan(0)
+      // 用户已确认接受合作 → availability 必须存在（AGENTS §45：不展示未经确认的状态）
+      expect(hero.availability, locale).not.toBeNull()
     }
+  })
+
+  it('states the AI-enhanced digital product developer positioning', () => {
+    expect(HOME_CONTENT['zh-CN'].hero.lead).toContain('AI 增强型数字产品开发者')
+    expect(HOME_CONTENT['en-US'].hero.lead).toContain('AI-Enhanced Digital Product Developer')
   })
 
   it('provides section chrome for every homepage section', () => {
@@ -87,6 +99,46 @@ describe('home content contract', () => {
         if (entry.current) {
           expect(entry.endDate ?? null).toBeNull()
         }
+      }
+    }
+  })
+
+  it('ships the six approved capabilities with badges and unique ids', () => {
+    for (const locale of LOCALES) {
+      const items = HOME_CONTENT[locale].capabilities.items
+
+      expect(items.length, locale).toBe(6)
+      expect(new Set(items.map((item) => item.id)).size, locale).toBe(items.length)
+
+      for (const item of items) {
+        expect(item.title.length, `${locale}: ${item.id}`).toBeGreaterThan(0)
+        expect(item.description.length, `${locale}: ${item.id}`).toBeGreaterThan(0)
+        expect(item.technologies.length, `${locale}: ${item.id}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('never advertises skills as percentages', () => {
+    for (const locale of LOCALES) {
+      const serialized = JSON.stringify(HOME_CONTENT[locale])
+
+      expect(serialized, locale).not.toMatch(/\d+\s*%/)
+    }
+  })
+
+  it('exposes only the real contact channel and no fabricated content', () => {
+    const forbidden = ['github', 'linkedin', '占位', '尚未发布', '下一阶段', 'placeholder', 'lorem']
+
+    for (const locale of LOCALES) {
+      const content = HOME_CONTENT[locale]
+
+      expect(content.contact.socials.map((social) => social.label), locale).toEqual(['Email'])
+      expect(content.contact.socials[0]?.href, locale).toBe('mailto:jikang0424@163.com')
+
+      const serialized = JSON.stringify(content).toLowerCase()
+
+      for (const phrase of forbidden) {
+        expect(serialized, `${locale}: ${phrase}`).not.toContain(phrase)
       }
     }
   })

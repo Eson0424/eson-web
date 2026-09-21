@@ -139,7 +139,15 @@
     "listTitle": "Career timeline",
     "countLabel": "{count} entries",
     "empty": "No experience entries yet.",
-    "emptyHint": "Career history appears here once it is published."
+    "emptyHint": "Career history appears here once it is published.",
+    "employmentTypes": {
+      "FULL_TIME": "Full-time",
+      "PART_TIME": "Part-time",
+      "FREELANCE": "Freelance",
+      "CONTRACT": "Contract",
+      "SELF_EMPLOYED": "Independent / Freelance",
+      "OTHER": "Other"
+    }
   },
   "about": {
     "pageTitle": "About"

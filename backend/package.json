@@ -13,7 +13,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
-    "admin:bootstrap": "node dist/bootstrap-admin.js"
+    "admin:bootstrap": "node dist/bootstrap-admin.js",
+    "content:import": "node dist/content-import.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

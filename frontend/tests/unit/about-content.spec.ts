@@ -6,6 +6,17 @@ import { ABOUT_CONTENT } from '../../app/data/about'
 const LOCALES = ['zh-CN', 'en-US'] as const
 const FORBIDDEN_CAPABILITY_FIELDS = ['level', 'years', 'experience', 'certification', 'score']
 
+/** 用户确认的 7 个技能分类（顺序即展示顺序） */
+const SKILL_IDS = [
+  'skill-frontend',
+  'skill-backend',
+  'skill-product-engineering',
+  'skill-ai-aigc',
+  'skill-ecommerce',
+  'skill-design-content',
+  'skill-engineering-practices',
+]
+
 describe('about content contract', () => {
   it('ships both locales with the same section structure', () => {
     for (const locale of LOCALES) {
@@ -30,6 +41,54 @@ describe('about content contract', () => {
         expect(item.title.length, item.id).toBeGreaterThan(0)
         expect(item.description.length, item.id).toBeGreaterThan(0)
       }
+    }
+  })
+
+  it('ships the seven approved skill categories with technology lists', () => {
+    for (const locale of LOCALES) {
+      const items = ABOUT_CONTENT[locale].capabilities.items
+
+      expect(items.map((item) => item.id), locale).toEqual(SKILL_IDS)
+
+      for (const item of items) {
+        expect(item.technologies.length, `${locale}: ${item.id}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('never expresses skills as percentages', () => {
+    for (const locale of LOCALES) {
+      expect(JSON.stringify(ABOUT_CONTENT[locale].capabilities), locale).not.toMatch(/\d+\s*%/)
+    }
+  })
+
+  it('states the approved positioning and the current-focus principle', () => {
+    expect(ABOUT_CONTENT['zh-CN'].hero.headline.join('')).toContain('AI 增强型')
+    expect(ABOUT_CONTENT['en-US'].hero.headline.join(' ')).toContain('AI-Enhanced')
+
+    for (const locale of LOCALES) {
+      const focus = ABOUT_CONTENT[locale].philosophy.principles.find(
+        (principle) => principle.id === 'principle-now',
+      )
+
+      expect(focus, `${locale}: current focus must live in philosophy`).toBeDefined()
+      expect(focus?.title.length, locale).toBeGreaterThan(0)
+      expect(focus?.body.length, `${locale}: current focus body`).toBeGreaterThan(40)
+    }
+  })
+
+  it('describes the six-step trajectory from frontend to products', () => {
+    for (const locale of LOCALES) {
+      const ids = ABOUT_CONTENT[locale].profile.areas.map((area) => area.id)
+
+      expect(ids, locale).toEqual([
+        'trajectory-frontend',
+        'trajectory-ecommerce',
+        'trajectory-independent',
+        'trajectory-amazon',
+        'trajectory-ai',
+        'trajectory-products',
+      ])
     }
   })
 

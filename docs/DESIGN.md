@@ -534,13 +534,11 @@ Recommended structure:
 
 ESON
 
-SOFTWARE
-ENGINEER
-&
-BUILDER
+从界面，到产品。
+From interfaces to products.
 
-I BUILD DIGITAL PRODUCTS,
-AI SYSTEMS & INTERACTIVE EXPERIENCES.
+AI 增强型数字产品开发者
+AI-Enhanced Digital Product Developer
 
 ● AVAILABLE
 
@@ -602,7 +600,7 @@ SYSTEM ONLINE
  ↓
 ESON
  ↓
-SOFTWARE ENGINEER & BUILDER
+从界面，到产品。/ From interfaces to products.
  ↓
 Description
  ↓
@@ -1316,10 +1314,7 @@ Recommended:
 ```text
 ESON
 
-SOFTWARE
-ENGINEER
-&
-BUILDER
+从界面，到产品。
 ```
 
 Then:

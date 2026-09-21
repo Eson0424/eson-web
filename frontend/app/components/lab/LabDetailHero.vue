@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LabDetail, LabLink } from '~/types/lab'
+import { formatYearMonthOrDash } from '~/utils/date-display'
 
 const { experiment, links } = defineProps<{
   experiment: LabDetail
@@ -70,7 +71,9 @@ const statusLabel = computed(() => t(`lab.status.${experiment.status}`))
 
             <div class="flex flex-col gap-3">
               <dt class="type-meta text-ink-muted">{{ t('lab.publishedLabel') }}</dt>
-              <dd class="font-mono type-small text-ink">{{ experiment.publishedAt ?? '—' }}</dd>
+              <dd class="font-mono type-small text-ink">
+                {{ formatYearMonthOrDash(experiment.publishedAt) }}
+              </dd>
             </div>
           </dl>
 

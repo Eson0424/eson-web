@@ -139,7 +139,15 @@
     "listTitle": "职业轨迹",
     "countLabel": "{count} 条经历",
     "empty": "暂无经历条目。",
-    "emptyHint": "职业经历整理完成后会在这里发布。"
+    "emptyHint": "职业经历整理完成后会在这里发布。",
+    "employmentTypes": {
+      "FULL_TIME": "全职",
+      "PART_TIME": "兼职",
+      "FREELANCE": "自由职业",
+      "CONTRACT": "合同制",
+      "SELF_EMPLOYED": "独立开发 / 自由职业",
+      "OTHER": "其他"
+    }
   },
   "about": {
     "pageTitle": "关于"
