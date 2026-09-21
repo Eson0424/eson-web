@@ -33,12 +33,15 @@ describe('about content contract', () => {
     }
   })
 
-  it('keeps the current focus explicitly marked as placeholder', () => {
-    for (const locale of LOCALES) {
-      const focus = ABOUT_CONTENT[locale].focus
+  it('ships no empty placeholder section for unpublished content', () => {
+    const forbidden = ['尚未发布', 'not been published', 'placeholder', '占位', '下一阶段', 'next phase']
 
-      expect(focus.placeholder, locale).toBe(true)
-      expect(focus.items, locale).toEqual([])
+    for (const locale of LOCALES) {
+      const serialized = JSON.stringify(ABOUT_CONTENT[locale]).toLowerCase()
+
+      for (const phrase of forbidden) {
+        expect(serialized, `${locale}: ${phrase}`).not.toContain(phrase)
+      }
     }
   })
 

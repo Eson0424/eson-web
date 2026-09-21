@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { CONTACT_CONTENT, CONTACT_FIELDS } from '../../app/data/contact'
+import {
+  CONTACT_CONTENT,
+  CONTACT_EMAIL,
+  CONTACT_FIELDS,
+  CONTACT_MAILTO,
+} from '../../app/data/contact'
 import { createEmptyContactForm, validateContactForm } from '../../app/utils/contact'
 
-// Phase 2C-3：Contact 内容与表单契约。
-// 重点：形式完整、校验正确、绝不发起请求、绝不产生假的成功状态。
+// Contact 内容与表单契约。
+// 重点：形式完整、校验正确、只暴露真实存在的联系方式、页面不残留开发阶段措辞。
 
 const LOCALES = ['zh-CN', 'en-US'] as const
 
@@ -35,11 +40,25 @@ describe('contact content contract', () => {
     expect(CONTACT_FIELDS.find((field) => field.id === 'message')?.maxLength).toBe(5000)
   })
 
-  it('never exposes fake contact addresses', () => {
+  it('exposes exactly the one real contact channel', () => {
     for (const locale of LOCALES) {
-      for (const channel of CONTACT_CONTENT[locale].methods.channels) {
-        expect(channel.value, `${locale}: ${channel.id}`).toBeUndefined()
-        expect(channel.href, `${locale}: ${channel.id}`).toBeUndefined()
+      const channels = CONTACT_CONTENT[locale].methods.channels
+
+      // GitHub / LinkedIn 未提供，因此不允许出现对应渠道（AGENTS §45）
+      expect(channels.map((channel) => channel.id), locale).toEqual(['email'])
+      expect(channels[0]?.value, locale).toBe(CONTACT_EMAIL)
+      expect(channels[0]?.href, locale).toBe(CONTACT_MAILTO)
+    }
+  })
+
+  it('contains no development-phase wording', () => {
+    const forbidden = ['下一阶段', 'next phase', '待配置', 'unconfigured', 'todo', 'placeholder', 'lorem']
+
+    for (const locale of LOCALES) {
+      const serialized = JSON.stringify(CONTACT_CONTENT[locale]).toLowerCase()
+
+      for (const phrase of forbidden) {
+        expect(serialized, `${locale}: ${phrase}`).not.toContain(phrase)
       }
     }
   })

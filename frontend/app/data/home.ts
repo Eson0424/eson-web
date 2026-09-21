@@ -1,19 +1,20 @@
 import type { HomeContent } from '../types/content'
+import { CONTACT_MAILTO } from './contact'
 
 /**
- * Phase 2B 占位内容（MOCK）。
+ * 首页编辑内容（不含条目数据）。
  *
- * ⚠️ 上线前必须替换为真实内容：
- * - 项目 / 实验 / 文章的标题与摘要目前是占位文案
- * - `availability`（可用状态）与社交链接必须是真实状态，缺失时应置为 null / 空数组
- * - 真实数据接入后，本文件将由 useHomeContent() 中的 API 调用替代（docs/API.md）
+ * Work / Lab / Writing / Experience 条目来自真实 API；本文件只保存不随内容库变化的
+ * 品牌文案、章节标题与稳定链接。所有状态类字段必须是可核实的事实：
+ * - `availability`：用户已确认接受合作
+ * - `socials`：只列真实存在的地址（GitHub / LinkedIn 未提供，因此不出现）
  *
  * 结构遵循 Translation Model（AGENTS §8、§51）：按 locale 组织，Public 缺失时回退 zh-CN。
  */
 
 const EN: HomeContent = {
   hero: {
-    systemStatus: { label: 'System online', state: 'online' },
+    kicker: 'Portfolio',
     brand: 'ESON',
     headline: ['Software', 'Engineer', '&', 'Builder'],
     lead: 'I build digital products, AI systems and interactive experiences.',
@@ -100,13 +101,14 @@ const EN: HomeContent = {
     headline: ["Let's build", 'something.'],
     body: 'Have an idea, a product or an interesting problem? I am happy to talk about it.',
     action: { label: 'Get in touch', to: '/contact' },
-    socials: [],
+    // 只有真实存在的联系方式；GitHub / LinkedIn 未提供，因此不出现（AGENTS §45）
+    socials: [{ label: 'Email', href: CONTACT_MAILTO }],
   },
 }
 
 const ZH: HomeContent = {
   hero: {
-    systemStatus: { label: 'System online', state: 'online' },
+    kicker: '作品集',
     brand: 'ESON',
     headline: ['Software', 'Engineer', '&', 'Builder'],
     lead: '我构建数字产品、AI 系统与交互体验。',
@@ -182,7 +184,7 @@ const ZH: HomeContent = {
     headline: ['一起构建', '一些东西。'],
     body: '如果你有想法、产品或一个有趣的问题，欢迎聊聊。',
     action: { label: '联系我', to: '/contact' },
-    socials: [],
+    socials: [{ label: 'Email', href: CONTACT_MAILTO }],
   },
 }
 

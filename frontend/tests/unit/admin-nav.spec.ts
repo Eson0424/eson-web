@@ -26,7 +26,7 @@ describe('admin navigation', () => {
   })
 
   it('marks every not-yet-implemented module as a placeholder route', () => {
-    // Phase 4-B ~ 4-F.4 已实现 Work / Lab / Writing / Experience / Media
+    // 已实现：Work / Lab / Writing / Experience / Media / Messages
     const implemented = [
       '/admin',
       '/admin/work',
@@ -34,6 +34,7 @@ describe('admin navigation', () => {
       '/admin/writing',
       '/admin/experience',
       '/admin/media',
+      '/admin/messages',
     ]
 
     expect(ADMIN_PLACEHOLDER_ROUTES).toEqual(

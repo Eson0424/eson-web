@@ -13,6 +13,8 @@ const ENV_KEYS = [
   'STORAGE_DRIVER',
   'MEDIA_PUBLIC_BASE_URL',
   'MEDIA_LOCAL_ROOT',
+  // Phase 5-I：CORS origin 规范化
+  'CORS_ORIGIN',
 ] as const
 
 const saved: Record<string, string | undefined> = {}
@@ -204,6 +206,45 @@ describe('readEnv — development / test behaviour preserved', () => {
     expect(env.storage.driver).toBe('local')
     expect(env.storage.publicBaseUrl).toBeUndefined()
     expect(env.storage.localRoot).toBeUndefined()
+  })
+})
+
+/**
+ * Phase 5-I：CORS origin 解析。
+ * 只规范化输入（trim / 去空项）并禁止生产通配符，不改动其余 CORS 语义。
+ */
+describe('readEnv — CORS origin', () => {
+  it('trims every entry so "https://a, https://b" stays usable', () => {
+    process.env.NODE_ENV = 'production'
+    setValidProductionSecrets()
+    setValidProductionMediaEnv()
+    process.env.CORS_ORIGIN = 'https://esonji.cn, https://www.esonji.cn ,'
+
+    expect(readEnv().corsOrigin).toEqual(['https://esonji.cn', 'https://www.esonji.cn'])
+  })
+
+  it('rejects the wildcard origin in production', () => {
+    process.env.NODE_ENV = 'production'
+    setValidProductionSecrets()
+    setValidProductionMediaEnv()
+    process.env.CORS_ORIGIN = '*'
+
+    expect(() => readEnv()).toThrowError(EnvValidationError)
+    expect(() => readEnv()).toThrowError(/CORS_ORIGIN/)
+  })
+
+  it('keeps at least one origin when the value is effectively empty', () => {
+    process.env.NODE_ENV = 'development'
+    process.env.CORS_ORIGIN = ' , '
+
+    expect(readEnv().corsOrigin).toEqual(['http://localhost:3000'])
+  })
+
+  it('allows the wildcard outside production (unchanged dev behaviour)', () => {
+    process.env.NODE_ENV = 'development'
+    process.env.CORS_ORIGIN = '*'
+
+    expect(readEnv().corsOrigin).toEqual(['*'])
   })
 })
 

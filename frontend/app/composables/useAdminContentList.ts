@@ -10,8 +10,12 @@ import type {
  */
 export function useAdminContentList<TDetail, TListItem>(options: {
   key: string
-  /** 列表只需要 list / remove；Media 等资源不实现 create / update / detail */
-  resource: Pick<AdminContentResource<TDetail, TListItem>, 'list' | 'remove'>
+  /**
+   * 列表只需要 `list`；`remove` 可选 —— 只读资源（如联系消息，V1 不做物理删除）
+   * 不提供删除能力时，`removeItem` 会明确报错而不是静默失败。
+   */
+  resource: Pick<AdminContentResource<TDetail, TListItem>, 'list'> &
+    Partial<Pick<AdminContentResource<TDetail, TListItem>, 'remove'>>
   /** Experience 没有 status / featured 过滤：传 false 时不发送这两个查询参数 */
   filters?: { status?: boolean; featured?: boolean }
   /** 默认排序（Experience 用 sortOrder asc 对齐 Public 顺序） */
@@ -67,6 +71,10 @@ export function useAdminContentList<TDetail, TListItem>(options: {
 
     if (!token) {
       throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    }
+
+    if (!service.remove) {
+      throw createError({ statusCode: 405, statusMessage: 'This resource does not support deletion' })
     }
 
     await service.remove(token, id)

@@ -1,10 +1,12 @@
 import type { AboutContent } from '../types/about'
 
 /**
- * About 页面内容（Phase 2C-3）。
+ * About 页面内容。
  *
  * 这里描述的是品牌定位、工作方式与能力分类，不包含等级、年限、认证、客户或任何量化成果。
- * 当前关注方向尚无真实内容，因此 `focus.placeholder = true`，页面会明确提示。
+ *
+ * 此处刻意没有 "Current focus" 区块：没有可核实的真实内容时，
+ * 上线版本宁可少一个 Section，也不展示空占位（AGENTS §45）。
  */
 
 const EN: AboutContent = {
@@ -123,12 +125,6 @@ const EN: AboutContent = {
         technologies: ['REST', 'Prisma', 'PostgreSQL'],
       },
     ],
-  },
-  focus: {
-    title: 'Current focus',
-    lede: 'What I am working on right now.',
-    items: [],
-    placeholder: true,
   },
   cta: {
     title: 'Where to go next',
@@ -258,12 +254,6 @@ const ZH: AboutContent = {
         technologies: ['REST', 'Prisma', 'PostgreSQL'],
       },
     ],
-  },
-  focus: {
-    title: '当前关注',
-    lede: '我现在正在做的事情。',
-    items: [],
-    placeholder: true,
   },
   cta: {
     title: '接下来',

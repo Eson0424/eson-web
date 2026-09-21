@@ -36,8 +36,6 @@ export function useExperienceService() {
         current: entry.isCurrent,
         summary: entry.summary,
         technologies: [],
-        // API 未返回公司/时间时视为占位条目（Phase 2C-3 的占位策略）
-        placeholder: !entry.company,
       })),
     }
   }

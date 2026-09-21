@@ -21,7 +21,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 export const ADMIN_PLACEHOLDER_ROUTES = [
   '/admin/categories',
   '/admin/tags',
-  '/admin/messages',
   '/admin/settings',
 ]
 

@@ -12,8 +12,8 @@ export interface ContactFieldConfig {
 export type ContactChannelId = 'email' | 'github' | 'linkedin' | 'other'
 
 /**
- * 联系渠道。本阶段没有真实 Email / GitHub / LinkedIn 地址，
- * 因此 `value` 与 `href` 均为 undefined，页面显示“待配置”状态而不是伪造链接。
+ * 联系渠道。只声明真实存在的地址：没有地址的渠道不应出现在数据里，
+ * 因此 `value` / `href` 为空时页面不会渲染链接（AGENTS §45）。
  */
 export interface ContactChannel {
   id: ContactChannelId
@@ -45,15 +45,14 @@ export interface ContactContent {
   hero: ContactHeroContent
   methods: ContactMethodsContent
   form: ContactFormContent
-  /** 明确的集成状态说明：当前不会发送任何请求 */
+  /** 提交后的实际行为说明（不提任何无法保证的回复时限） */
   integrationNote: string
 }
 
 export type ContactFieldError = 'required' | 'invalid-email' | 'too-short' | 'too-long'
 
 /**
- * 表单状态机（Phase 3：接入真实 API）。
- * success 只在 API 真正写入 contact_messages 后出现（不再有 pending-integration 占位态）。
+ * 表单状态机。success 只在 API 真正写入 contact_messages 后出现。
  */
 export type ContactFormStatus = 'idle' | 'invalid' | 'submitting' | 'success' | 'error'
 
@@ -65,9 +64,3 @@ export interface ContactFormValues {
 }
 
 export type ContactFieldErrors = Partial<Record<ContactFieldId, ContactFieldError>>
-
-/** 提交结果：本阶段永远停留在“待接入”状态，不会返回成功。 */
-export interface ContactSubmitResult {
-  status: 'pending-integration'
-  endpoint: string
-}

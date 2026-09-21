@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 
+/**
+ * 联系方式 props 只在真实存在时传入（AGENTS §45）。
+ * 目前只有邮箱：GitHub / LinkedIn 未提供，因此对应链接不会渲染。
+ */
 const {
   email,
   github,
   linkedin,
 } = defineProps<{
-  /** 仅在真实存在时传入，禁止虚构联系方式（AGENTS §45） */
   email?: string
   github?: string
   linkedin?: string
@@ -22,6 +25,7 @@ const FOOTER_ITEMS: Array<{ key: string; to: RouteLocationRaw }> = [
 ]
 
 const { t } = useI18n()
+const runtimeConfig = useRuntimeConfig()
 
 const footerItems = computed(() =>
   FOOTER_ITEMS.map((item) => ({ ...item, label: t(`nav.${item.key}`) })),
@@ -36,6 +40,15 @@ const socialLinks = computed(() =>
 )
 
 const currentYear = new Date().getFullYear()
+
+/**
+ * ICP 备案号由部署环境注入（NUXT_PUBLIC_ICP_BEIAN → public.icpBeian）。
+ *
+ * 仓库里不写死备案号：同一份镜像要能部署到不同主体/域名。
+ * 未注入时整块不渲染，避免出现空的“备案号：”占位。
+ */
+const ICP_LINK = 'https://beian.miit.gov.cn/'
+const icpBeian = computed(() => (runtimeConfig.public.icpBeian ?? '').trim())
 </script>
 
 <template>
@@ -74,7 +87,12 @@ const currentYear = new Date().getFullYear()
 
       <div class="type-meta flex flex-col gap-2 text-ink-muted tablet:flex-row tablet:items-center tablet:justify-between">
         <p>© {{ currentYear }} ESON</p>
-        <p>{{ t('footer.rights') }}</p>
+        <div class="flex flex-col gap-2 tablet:flex-row tablet:items-center tablet:gap-6">
+          <p>{{ t('footer.rights') }}</p>
+          <AppLink v-if="icpBeian" :href="ICP_LINK" external underline="none" class="type-meta">
+            {{ icpBeian }}
+          </AppLink>
+        </div>
       </div>
     </AppContainer>
   </footer>

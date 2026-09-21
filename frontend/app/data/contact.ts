@@ -1,15 +1,16 @@
 import type { ContactChannel, ContactContent, ContactFieldConfig } from '../types/contact'
 
 /**
- * Contact 页面内容（Phase 2C-3）。
+ * Contact 页面内容。
  *
- * ⚠️ 本阶段没有真实联系方式：
- * - Email / GitHub / LinkedIn 的 value 与 href 均为 undefined，页面显示“待配置”状态
- * - 表单只做 UI 与校验，不调用任何接口（未来接入 POST /api/v1/contact，docs/API.md §17）
+ * 正式公开的联系方式只有邮箱：GitHub 与 LinkedIn 均未提供，因此不生成对应渠道，
+ * 也不渲染任何空链接（AGENTS §45：不虚构社交账号）。
+ * 邮箱在这里定义一次，Footer 与首页 Contact 区块复用同一常量，避免出现多份副本。
  */
 
-/** 未来接入的联系接口（docs/API.md §17） */
-export const CONTACT_ENDPOINT = '/api/v1/contact'
+/** 正式联系邮箱（唯一公开联系方式） */
+export const CONTACT_EMAIL = 'jikang0424@163.com'
+export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`
 
 /** 前端 UX 规则：消息至少 20 个字符；API 侧范围为 1–5000（docs/API.md §17） */
 export const CONTACT_MESSAGE_MIN_LENGTH = 20
@@ -22,53 +23,50 @@ export const CONTACT_FIELDS: ContactFieldConfig[] = [
   { id: 'message', type: 'textarea', required: true, autocomplete: 'off', maxLength: 5000 },
 ]
 
-/** 渠道类型支持 'other'，当前只保留三项；没有真实地址时不构造 value / href */
+/** 只声明真实存在的渠道；没有地址的渠道直接不出现，而不是渲染成空链接 */
 const CHANNELS: ContactChannel[] = [
-  { id: 'email', label: 'Email' },
-  { id: 'github', label: 'GitHub' },
-  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'email', label: 'Email', value: CONTACT_EMAIL, href: CONTACT_MAILTO },
 ]
 
 const EN: ContactContent = {
   hero: {
     kicker: 'Contact',
     headline: ["Let's build", 'something', 'together.'],
-    lead: 'Have an idea, a product or a problem worth solving? Tell me what you are working on. This form is implemented and validated; the delivery API is connected in the next phase.',
+    lead: 'Have an idea, a product, or a problem worth solving? Tell me what you are working on.',
   },
   methods: {
     title: 'Contact methods',
-    lede: 'Direct channels. They are shown as unconfigured until the real addresses exist — no placeholder links are provided.',
+    lede: 'Email is the direct channel — for project enquiries, collaboration, and questions about the work on this site.',
     channels: CHANNELS,
   },
   form: {
     title: 'Send a message',
-    lede: 'All fields are required. Submissions are stored in the contact inbox via POST /api/v1/contact.',
+    lede: 'All fields are required. Messages arrive in the same inbox as the email address above.',
     fields: CONTACT_FIELDS,
-    submitLabel: 'Review message',
+    submitLabel: 'Send message',
   },
   integrationNote:
-    'Submissions are written to the contact inbox (POST /api/v1/contact). Email notifications are not part of this phase.',
+    'Submissions are delivered to the contact inbox and read directly. No automatic reply is sent.',
 }
 
 const ZH: ContactContent = {
   hero: {
     kicker: '联系',
     headline: ['一起构建', '一些真正', '有用的东西。'],
-    lead: '如果你有想法、产品，或者一个值得解决的问题，欢迎告诉我你正在做什么。这个表单已经实现并带校验；真正的发送接口会在下一阶段接入。',
+    lead: '如果你有想法、产品，或者一个值得解决的问题，欢迎告诉我你正在做什么。',
   },
   methods: {
     title: '联系方式',
-    lede: '直接联系渠道。在真实地址就绪之前，它们会以“待配置”状态显示——不会提供任何占位链接。',
+    lede: '邮箱是直接联系渠道，适合项目咨询、合作，以及关于本站内容的交流。',
     channels: CHANNELS,
   },
   form: {
     title: '发送消息',
-    lede: '所有字段都必填。提交后会通过 POST /api/v1/contact 写入联系收件箱。',
+    lede: '所有字段都必填。提交内容会与上方邮箱进入同一个收件箱。',
     fields: CONTACT_FIELDS,
-    submitLabel: '检查内容',
+    submitLabel: '发送',
   },
-  integrationNote:
-    '提交内容会写入联系收件箱（POST /api/v1/contact）。本阶段不包含邮件通知。',
+  integrationNote: '提交内容会进入联系收件箱，由本人直接查看；系统不会自动回复。',
 }
 
 export const CONTACT_CONTENT: Record<'zh-CN' | 'en-US', ContactContent> = {

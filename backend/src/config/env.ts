@@ -41,6 +41,32 @@ export const PRODUCTION_REQUIRED_LOCAL_MEDIA_KEYS = ['MEDIA_LOCAL_ROOT'] as cons
 const MEDIA_REASON =
   'must be set explicitly when NODE_ENV=production (no localhost / container-filesystem fallback)'
 
+const DEFAULT_CORS_ORIGIN = 'http://localhost:3000'
+
+/**
+ * CORS origin 列表（Phase 5-I 修复）。
+ *
+ * - 逗号分隔，逐项 trim 后丢弃空项：`"https://a, https://b"` 这种带空格的写法必须可用，
+ *   否则第二个 origin 会带着前导空格成为非法值，浏览器静默拒绝。
+ * - production 明确禁止通配符 `*`：带凭据（Refresh Cookie）的请求本来就不能用 `*`，
+ *   允许它只会掩盖配置错误。
+ */
+function readCorsOrigins(raw: string | undefined, isProduction: boolean): string[] {
+  const origins = (raw ?? DEFAULT_CORS_ORIGIN)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+
+  if (isProduction && origins.includes('*')) {
+    throw new EnvValidationError(
+      ['CORS_ORIGIN'],
+      'must list explicit origins; the wildcard "*" is not allowed in production',
+    )
+  }
+
+  return origins.length > 0 ? origins : [DEFAULT_CORS_ORIGIN]
+}
+
 /**
  * 读取 secret：
  * - production：必须提供非空值，且不得等于已知 dev 占位值；否则记入 invalidKeys（最终由 readEnv 抛出）
@@ -136,11 +162,14 @@ export function readEnv(): AppEnv {
     }
   }
 
+  // CORS origin 校验（production 禁止 "*"）
+  const corsOrigin = readCorsOrigins(process.env.CORS_ORIGIN, isProduction)
+
   return {
     nodeEnv,
     isProduction,
     port: Number(process.env.PORT ?? process.env.API_PORT ?? 3001),
-    corsOrigin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(','),
+    corsOrigin,
     databaseUrl: process.env.DATABASE_URL ?? '',
     jwtSecret,
     jwtRefreshSecret,

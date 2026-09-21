@@ -49,20 +49,6 @@ export interface AboutCapabilitiesContent {
   items: AboutCapability[]
 }
 
-export interface AboutFocusItem {
-  id: string
-  label: string
-  description?: string
-}
-
-export interface AboutFocusContent {
-  title: string
-  lede?: string
-  items: AboutFocusItem[]
-  /** 当前关注方向尚无真实内容时为 true，页面会明确提示 */
-  placeholder: boolean
-}
-
 export interface AboutCtaContent {
   title: string
   lede?: string
@@ -74,6 +60,5 @@ export interface AboutContent {
   profile: AboutProfileContent
   philosophy: AboutPhilosophyContent
   capabilities: AboutCapabilitiesContent
-  focus: AboutFocusContent
   cta: AboutCtaContent
 }

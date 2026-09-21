@@ -74,7 +74,7 @@ onScopeDispose(() => {
         >
           <div class="flex flex-col gap-8">
             <p class="hero-item type-meta text-ink-secondary" :style="{ '--hero-delay': entryDelay(0) }">
-              [ {{ hero.systemStatus.label }} ]
+              [ {{ hero.kicker }} ]
             </p>
 
             <div class="flex flex-col gap-4">

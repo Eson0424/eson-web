@@ -2,12 +2,9 @@ import type { ExperienceSummary } from '../types/experience'
 import type { ContentStatus } from './useWorkContent'
 
 /**
- * 'placeholder'：当前列表全部是占位条目（本阶段状态）
- * 'success'：至少存在一条真实经历
- * 'empty'：没有任何条目
- */
-/**
- * Experience 列表数据入口（Phase 3：真实 API，GET /api/v1/experience）。
+ * Experience 列表数据入口（真实 API，GET /api/v1/experience）。
+ *
+ * 三种状态：pending / error / empty / success（空列表走 empty，不显示占位条目）。
  */
 export function useExperienceList() {
   const { locale } = useI18n()
@@ -31,11 +28,7 @@ export function useExperienceList() {
     return 'success'
   })
 
-  const hasPlaceholderOnly = computed(() =>
-    items.value.length > 0 && items.value.every((entry) => entry.placeholder),
-  )
-
-  return { items, status, hasPlaceholderOnly, error, refresh }
+  return { items, status, error, refresh }
 }
 
 /**

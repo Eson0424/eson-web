@@ -5,8 +5,7 @@ export const EXPERIENCE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
  * 经历视图模型。字段方向对齐 docs/DATABASE.md §20/§21（Experience / ExperienceTranslation）
  * 与 docs/API.md §13。
  *
- * 注意：本阶段没有真实职业经历数据，因此数据源只包含 `placeholder: true` 的占位条目，
- * 不包含公司、职位、时间、职责或成果等任何可能被误读为真实履历的信息。
+ * 注意：只有真实存在的字段才会被填充；缺失字段保持 undefined，页面不渲染空行。
  */
 export interface ExperienceSummary {
   id: string
@@ -30,8 +29,6 @@ export interface ExperienceSummary {
   /** ← Tag translations */
   technologies: string[]
   featured?: boolean
-  /** 本阶段专用：标记占位条目，接入真实内容后移除 */
-  placeholder?: boolean
 }
 
 export interface ExperienceDetail extends ExperienceSummary {

@@ -4,8 +4,6 @@ import type { ContactMethodsContent } from '~/types/contact'
 const { methods } = defineProps<{
   methods: ContactMethodsContent
 }>()
-
-const { t } = useI18n()
 </script>
 
 <template>
@@ -31,10 +29,8 @@ const { t } = useI18n()
             {{ channel.value ?? channel.href }}
           </AppLink>
 
-          <p v-else class="type-small text-ink-secondary">
-            <span aria-hidden="true" class="mr-2 text-ink-muted">—</span>
-            {{ t('contact.unconfigured') }}
-          </p>
+          <!-- 没有地址的渠道只显示已有文本；不会渲染“待配置”之类的占位说明 -->
+          <p v-else-if="channel.value" class="type-small text-ink-secondary">{{ channel.value }}</p>
         </li>
       </ul>
     </div>

@@ -3,6 +3,8 @@ import { AuthModule } from '../auth/auth.module.js'
 import { AdminController } from './admin.controller.js'
 import { AdminService } from './admin.service.js'
 import { AdminReferenceController } from './admin-reference.controller.js'
+import { AdminContactController } from './contact/admin-contact.controller.js'
+import { AdminContactService } from './contact/admin-contact.service.js'
 import { AdminLabController } from './lab/admin-lab.controller.js'
 import { AdminLabService } from './lab/admin-lab.service.js'
 import { AdminExperienceController } from './experience/admin-experience.controller.js'
@@ -21,6 +23,7 @@ import { AdminWritingService } from './writing/admin-writing.service.js'
     AdminWritingController,
     AdminExperienceController,
     AdminReferenceController,
+    AdminContactController,
   ],
   providers: [
     AdminService,
@@ -28,6 +31,7 @@ import { AdminWritingService } from './writing/admin-writing.service.js'
     AdminLabService,
     AdminWritingService,
     AdminExperienceService,
+    AdminContactService,
   ],
 })
 export class AdminModule {}

@@ -97,7 +97,7 @@
     "linkProject": "Project site",
     "nextExperiment": "Next experiment",
     "previewPlaceholder": "{title} preview",
-    "noDemoNote": "There is no runnable demo for this experiment yet — the preview above is a placeholder.",
+    "noDemoNote": "No runnable online demo is available for this experiment yet — the preview above is static.",
     "empty": "No experiments are published yet.",
     "emptyHint": "Experiments appear here once they are documented.",
     "notFoundTitle": "Experiment not found",
@@ -138,20 +138,14 @@
     "kicker": "Track",
     "listTitle": "Career timeline",
     "countLabel": "{count} entries",
-    "placeholderCount": "{count} placeholder entries",
-    "placeholderBadge": "Placeholder",
-    "placeholderNotice": "Real experience entries will appear once the content is connected. This is placeholder structure only — no employers, roles, dates or results are shown.",
     "empty": "No experience entries yet.",
-    "emptyHint": "Entries appear here once experience content is connected."
+    "emptyHint": "Career history appears here once it is published."
   },
   "about": {
-    "pageTitle": "About",
-    "focusPlaceholder": "Current focus has not been published yet.",
-    "focusPlaceholderHint": "Once real content is connected, the current projects and research directions are listed here."
+    "pageTitle": "About"
   },
   "contact": {
     "pageTitle": "Contact",
-    "unconfigured": "Available after configuration",
     "form": {
       "fields": {
         "name": "Name",
@@ -232,8 +226,41 @@
       "error": "Statistics could not be loaded.",
       "empty": "No content data yet."
     },
+    "messages": {
+      "listTitle": "Contact messages",
+      "listLede": "Messages submitted through the contact form, read straight from the database.",
+      "listLabel": "Message list",
+      "filterStatus": "Status",
+      "all": "All",
+      "status": {
+        "UNREAD": "Unread",
+        "READ": "Read",
+        "ARCHIVED": "Archived"
+      },
+      "loading": "Loading messages…",
+      "loadError": "The message list could not be loaded.",
+      "empty": "No messages yet.",
+      "emptyHint": "Submissions from the contact form appear here.",
+      "selectHint": "Select a message from the list to read it in full.",
+      "noSubject": "(no subject)",
+      "from": "From",
+      "receivedAt": "Received",
+      "messageBody": "Message",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "archive": "Archive",
+      "unarchive": "Move out of archive",
+      "updating": "Updating…",
+      "detailLoading": "Loading message…",
+      "detailError": "This message could not be loaded.",
+      "updateError": "The status could not be updated. Try again shortly.",
+      "sessionExpired": "Your session expired. Sign in again.",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {totalPages} · {total} items"
+    },
     "placeholder": {
-      "body": "This module is implemented in a later phase.",
+      "body": "This module is not open yet.",
       "hint": "It contains no placeholder business data."
     },
     "work": {

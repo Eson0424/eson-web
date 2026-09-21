@@ -1,17 +1,13 @@
 <script setup lang="ts">
 const { t } = useI18n()
-const { items, status, hasPlaceholderOnly, refresh } = useExperienceList()
+const { items, status, refresh } = useExperienceList()
 const runtimeConfig = useRuntimeConfig()
 
 const pageTitle = computed(() => `${t('experience.pageTitle')} — ESON`)
 const pageDescription = computed(() => t('experience.pageLede'))
 const canonicalUrl = computed(() => new URL('/experience', runtimeConfig.public.siteUrl).toString())
 
-const countLabel = computed(() =>
-  hasPlaceholderOnly.value
-    ? t('experience.placeholderCount', { count: items.value.length })
-    : t('experience.countLabel', { count: items.value.length }),
-)
+const countLabel = computed(() => t('experience.countLabel', { count: items.value.length }))
 
 useSeoMeta({
   title: () => pageTitle.value,
@@ -72,7 +68,7 @@ useHead({
           :title="t('experience.listTitle')"
         />
 
-        <ExperienceTimeline :items="items" :placeholder="hasPlaceholderOnly" />
+        <ExperienceTimeline :items="items" />
       </div>
     </AppSection>
   </div>

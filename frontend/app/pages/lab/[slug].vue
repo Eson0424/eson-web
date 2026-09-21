@@ -109,8 +109,8 @@ useHead({
     })),
     ...(coverImage.value
       ? [
-          { property: 'og:image', content: coverImage.value.src },
-          { name: 'twitter:image', content: coverImage.value.src },
+          { key: 'og:image', property: 'og:image', content: coverImage.value.src },
+          { key: 'twitter:image', name: 'twitter:image', content: coverImage.value.src },
         ]
       : []),
   ],

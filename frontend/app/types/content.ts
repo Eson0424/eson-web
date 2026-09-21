@@ -33,7 +33,14 @@ export interface StatusContent {
 }
 
 export interface HeroContent {
-  systemStatus: StatusContent
+  /**
+   * Hero 顶部的方括号标签。
+   *
+   * 刻意不使用 "SYSTEM ONLINE" 之类的措辞：本站没有真实的服务器运行监控，
+   * 把它显示成监控状态会构成虚假事实（AGENTS §45、DESIGN §34）。
+   * 这里只放可以无条件成立的定位标签。
+   */
+  kicker: string
   brand: string
   /** 逐行渲染的标题（PRD §4.2 正式使用英文品牌标题） */
   headline: string[]

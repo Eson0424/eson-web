@@ -23,6 +23,20 @@ export default defineNuxtConfig({
   app: {
     // 页面过渡：Exit 150–250ms / Enter 250–500ms（docs/DESIGN.md §24）。
     pageTransition: { name: 'page', mode: 'out-in' },
+    /**
+     * 站点图标与 Web App manifest。
+     * 资源都在 frontend/public 下，由 Nitro 直接静态托管（不依赖第三方图片服务）。
+     */
+    head: {
+      link: [
+        // ICO 内含 16 / 32 / 48 三个尺寸
+        { rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
+      ],
+      meta: [{ name: 'theme-color', content: '#07080C' }],
+    },
   },
 
   /**
@@ -55,6 +69,13 @@ export default defineNuxtConfig({
       apiBase: 'http://localhost:3001/api/v1',
       // 用于 canonical / Open Graph 的站点地址，生产通过 NUXT_PUBLIC_SITE_URL 覆盖。
       siteUrl: 'http://localhost:3000',
+      // 默认社交分享图（详情页有 cover 时用详情页自己的图覆盖）。
+      defaultOgImage: '/og-image.png',
+      /**
+       * ICP 备案号，生产通过 NUXT_PUBLIC_ICP_BEIAN 注入（例如 粤ICP备xxxxxxxx号-1）。
+       * 仓库内不写死：留空时 Footer 不渲染备案块。
+       */
+      icpBeian: '',
     },
   },
 

@@ -1,0 +1,25 @@
+{
+  "name": "ESON — Software Engineer & Builder",
+  "short_name": "ESON",
+  "description": "ESON — Software Engineer & Builder. 个人作品与技术站点。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07080C",
+  "theme_color": "#07080C",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

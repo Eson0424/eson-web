@@ -65,5 +65,12 @@ $RECYCLE.BIN/
 start-local.ps1
 logs/
 
+# 本地素材目录（例如本地演示用的背景视频 / 背景图）：
+# 不是构建输入，也不属于发布产物（.dockerignore 同样不包含它）。
+#
+# 注意：规则锚定到仓库根目录 —— 写成 `data/` 会同时匹配 frontend/app/data/，
+# 那是前端源码目录，必须继续被 Git 跟踪。
+/data/
+
 # 内部开发流程文件（不属于产物）
 AGENTS.md

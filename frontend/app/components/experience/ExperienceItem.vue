@@ -37,9 +37,6 @@ const organizationLine = computed(() =>
         <div class="flex flex-wrap items-center gap-3">
           <p v-if="displayIndex" class="type-meta text-ink-muted">{{ displayIndex }}</p>
           <h3 class="type-h3">{{ entry.title }}</h3>
-          <AppBadge v-if="entry.placeholder" tone="outline" uppercase>
-            {{ t('experience.placeholderBadge') }}
-          </AppBadge>
         </div>
 
         <p v-if="organizationLine" class="type-meta text-ink-muted">{{ organizationLine }}</p>

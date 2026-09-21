@@ -30,7 +30,6 @@ useHead({
     <AboutProfile :profile="content.profile" />
     <AboutPhilosophy :philosophy="content.philosophy" />
     <AboutCapabilities :capabilities="content.capabilities" />
-    <AboutFocus :focus="content.focus" />
     <AboutCta :cta="content.cta" />
   </div>
 </template>
