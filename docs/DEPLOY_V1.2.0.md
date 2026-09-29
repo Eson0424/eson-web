@@ -77,10 +77,14 @@
 ```bash
 SITE_DOMAIN=esonji.cn
 NUXT_PUBLIC_ICP_BEIAN=粤ICP备2026142725号-1
+NUXT_PUBLIC_SECURITY_BEIAN=粤公网安备44030002017573号
 ```
 
 - `SITE_DOMAIN`：v1.2.0 起派生 `CORS_ORIGIN` / `NUXT_PUBLIC_SITE_URL` / `NUXT_PUBLIC_API_BASE` / `MEDIA_PUBLIC_BASE_URL`，**只需这一个域名变量**。
 - `NUXT_PUBLIC_ICP_BEIAN`：**v1.2.0 新增**。只读检查确认当前线上文件里**不存在**该 key，必须在本版本部署前补上，否则 Footer 不显示备案号。
+- `NUXT_PUBLIC_SECURITY_BEIAN`：**v1.3.1 新增（公安备案）**。Footer 用 `frontend/public/beian.png`
+  与该编号组成同一个外链区域（链接到 `https://beian.mps.gov.cn/#/query/webSearch?code=<编号数字段>`）。
+  与 ICP 同一策略：未注入时该块整体不渲染，不影响 Footer 其余内容。
 
 ### 3.2 只需变量名（值保持现状；禁止在文档 / 聊天 / 工单中记录）
 
@@ -502,6 +506,26 @@ ssh -i $KEY $HOST 'sudo docker inspect --format "{{.Config.Env}}" eson-web-prod-
 ssh -i $KEY $HOST 'sudo docker inspect --format "{{.Config.Image}}" eson-web-prod-frontend-1'
 #   仍是 :local 且未重建 → 回到 F 步重新 up -d
 ```
+
+### 8.1 公安备案验证（v1.3.1 新增）
+
+```bash
+curl -s https://esonji.cn/ | grep -o '粤公网安备[0-9]*号'
+# 期望输出：粤公网安备44030002017573号
+
+curl -s https://esonji.cn/ | grep -o 'https://beian.mps.gov.cn/#/query/webSearch?code=44030002017573'
+# 期望输出：https://beian.mps.gov.cn/#/query/webSearch?code=44030002017573
+
+curl -s https://esonji.cn/ | grep -o '<img src="/beian.png"[^>]*>'
+# 期望：图标与编号在同一个 <a> 内（可点击区域包含图标）
+
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' https://esonji.cn/beian.png
+# 期望输出：200 image/png
+```
+
+四条全部命中才算 PASS（ICP 与公安备案必须同时存在，缺一即为部署失败）。
+公安备案平台的查询页是 SPA：`#/` 之后是前端路由，脚本请求只能验证到域名根可达（200），
+真实点击跳转需在浏览器里目视确认。
 
 ---
 
