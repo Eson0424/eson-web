@@ -78,6 +78,9 @@ services:
       NUXT_API_BASE_SERVER: http://backend:3001/api/v1
       # ICP 备案号：Footer 展示；未注入时 Footer 不渲染备案行
       NUXT_PUBLIC_ICP_BEIAN: ${NUXT_PUBLIC_ICP_BEIAN:-}
+      # 公安备案号：Footer 展示（图标 public/beian.png 与编号共用一个链接）；
+      # 未注入时 Footer 不渲染该块
+      NUXT_PUBLIC_SECURITY_BEIAN: ${NUXT_PUBLIC_SECURITY_BEIAN:-}
     networks:
       - edge
       - app

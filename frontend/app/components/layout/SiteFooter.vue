@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
+import { ICP_BEIAN_LINK, SECURITY_BEIAN_ICON, resolveSecurityBeianLink } from '~/utils/filing'
 
 /**
  * 联系方式 props 只在真实存在时传入（AGENTS §45）。
@@ -47,8 +48,16 @@ const currentYear = new Date().getFullYear()
  * 仓库里不写死备案号：同一份镜像要能部署到不同主体/域名。
  * 未注入时整块不渲染，避免出现空的“备案号：”占位。
  */
-const ICP_LINK = 'https://beian.miit.gov.cn/'
 const icpBeian = computed(() => (runtimeConfig.public.icpBeian ?? '').trim())
+
+/**
+ * 公安备案号同样由部署环境注入（NUXT_PUBLIC_SECURITY_BEIAN → public.securityBeian）。
+ *
+ * 图标与备案号共用一个链接区域，跳到公安备案平台的查询页；
+ * 未注入时整块不渲染，不影响 Footer 其余内容。
+ */
+const securityBeian = computed(() => (runtimeConfig.public.securityBeian ?? '').trim())
+const securityBeianLink = computed(() => resolveSecurityBeianLink(securityBeian.value))
 </script>
 
 <template>
@@ -89,8 +98,24 @@ const icpBeian = computed(() => (runtimeConfig.public.icpBeian ?? '').trim())
         <p>© {{ currentYear }} ESON</p>
         <div class="flex flex-col gap-2 tablet:flex-row tablet:items-center tablet:gap-6">
           <p>{{ t('footer.rights') }}</p>
-          <AppLink v-if="icpBeian" :href="ICP_LINK" external underline="none" class="type-meta">
+          <AppLink v-if="icpBeian" :href="ICP_BEIAN_LINK" external underline="none" class="type-meta">
             {{ icpBeian }}
+          </AppLink>
+          <AppLink
+            v-if="securityBeian"
+            :href="securityBeianLink"
+            external
+            underline="none"
+            class="type-meta"
+          >
+            <img
+              :src="SECURITY_BEIAN_ICON"
+              alt=""
+              width="36"
+              height="40"
+              class="h-4 w-auto shrink-0"
+            >
+            {{ securityBeian }}
           </AppLink>
         </div>
       </div>

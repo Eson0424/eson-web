@@ -76,6 +76,12 @@ export default defineNuxtConfig({
        * 仓库内不写死：留空时 Footer 不渲染备案块。
        */
       icpBeian: '',
+      /**
+       * 公安备案号，生产通过 NUXT_PUBLIC_SECURITY_BEIAN 注入
+       * （例如 粤公网安备xxxxxxxxxxxxx号，图标固定为 public/beian.png）。
+       * 与 ICP 同一策略：仓库内不写死，留空时 Footer 不渲染公安备案块。
+       */
+      securityBeian: '',
     },
   },
 
